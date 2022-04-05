@@ -91,7 +91,6 @@ For a K-Offset sensor:  (For a CST ELF,  1in sensor, 0.20 to 20 GPM)
 We set the sensor type to 1 
 Set K to: 0.153
 Set offset to: 1.047
-Set Flow Factor to 1.
 Set Max Flow reset time in seconds to 60 seconds if no pulses
 Set max flow rate to 20 (per manufacture spec sheet)
 Set Flow Units to 0 (GPM)
