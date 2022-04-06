@@ -139,7 +139,7 @@ Default = 1
        
 7 	Excess Flow Threshold Time
        Time in seconds to report excessive flow, Integer
-       Default = 120 seconds (20 minutes)
+       Default = 1200 seconds (20 minutes)
        If set to zero, will disable.
        
 8 	Minimal Send Interval in second's, Integer
