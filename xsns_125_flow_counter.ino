@@ -76,7 +76,7 @@
     Gallons per minute = (Frequency + Offset) * K  or  = (Frequency + offset) / K
 
     // flow meter type
-    flow_type   0   pulse per unit (GPM....)
+    FlowCtr_type   0   pulse per unit (GPM....)
                 1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset
                 2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
 
@@ -137,7 +137,7 @@
 
   format: Sensor125 1,2,3
 
-      1     Flow_type   0   pulse per unit (GPM....)
+      1     FlowCtr_type   0   pulse per unit (GPM....)
                         1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K)
                         2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K)
 
@@ -234,8 +234,8 @@ at line 859
 #define D_FLOW_COUNT  "Flow Pulse Count"
 #define D_FLOW_PERIOD "Flow Period"
 #define D_Flow_Factor "Flow Factor"
-#define D_Flow_K      "Flow K"
-#define D_Flow_Offset "Flow Offset"
+#define D_FlowCtr_k      "Flow K"
+#define D_FlowCtr_offset "Flow Offset"
 #define D_Flow_Frequency "Flow Frequency"
 
 #define D_FLOWMETER_NAME          "Flow_Meter"
@@ -261,28 +261,28 @@ at line 859
 /* ******************************************************** */
 // this is here to avoid making to many changes to base Tasmota code...
 // these settings are save between re-boots
-//    --->   Need to do a global rename of "MySettings." to "Settings->" when we move this structure to Tasmota base code <---------- TRL
+//    --->   Need to do a global rename of "Settings->" to "Settings->" when we move this structure to Tasmota base code <---------- TRL
 
 // xsns125 Flow Counter varables in settings.h
 
-struct MYSETTINGS
-{
-  uint8_t  flow_type =                        0;    // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
-  uint8_t  flow_units =                       0;    // Current flow units
-  uint16_t flow_debounce_low =                0;    // Current debounce values...
-  uint16_t flow_debounce_high =               0;
-  uint16_t flow_debounce =                    0;
-  uint16_t MQTT_send_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
-  uint16_t current_sending_interval =        10;    // in seconds
-  uint32_t flow_threshold_time =  5 * 60 * 1000000; // Excessive flow threshold timeout, in microseconds (20 Min)  
-  uint32_t max_flow_reset_time =  1 * 60 * 1000000; // Reset flow if no pulse within this window, in microseconds
-  float    max_flow_rate  =                60.0;    // Sensor Max Flow rate in units of flow...
-  float    flow_threshold_max =            20.0;    // Excessive flow threshold in units of flow
-  float    flow_rate_factor =               1.0;    // Current Rate Factor
-  float    flow_k =                        .153;    // For K-Offset flow sensor (--> CST 1in ELF sensor)
-  float    flow_offset =                  1.047;    // Current Offset
-} MySettings;
-static_assert(sizeof(MySettings) == 40, "MySettings Size is not 40 bytes");
+// struct MYSETTINGS
+// {
+//   uint8_t  FlowCtr_type =                        0;    // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
+//   uint8_t  FlowCtr_units =                       0;    // Current flow units
+//   uint16_t FlowCtr_debounce_low =                0;    // Current debounce values...
+//   uint16_t FlowCtr_debounce_high =               0;
+//   uint16_t FlowCtr_debounce =                    0;
+//   uint16_t FlowCtr_MQTT_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
+//   uint16_t FlowCtr_current_send_interval =        10;    // in seconds
+//   uint32_t flow_threshold_time =  5 * 60 * 1000000; // Excessive flow threshold timeout, in microseconds (20 Min)  
+//   uint32_t FlowCtr_max_flow_reset_time =  1 * 60 * 1000000; // Reset flow if no pulse within this window, in microseconds
+//   float    FlowCtr_max_flow_rate  =                60.0;    // Sensor Max Flow rate in units of flow...
+//   float    FlowCtr_threshold_max =            20.0;    // Excessive flow threshold in units of flow
+//   float    FlowCtr_rate_factor =               1.0;    // Current Rate Factor
+//   float    FlowCtr_k =                        .153;    // For K-Offset flow sensor (--> CST 1in ELF sensor)
+//   float    FlowCtr_offset =                  1.047;    // Current Offset
+// } MySettings;
+// static_assert(sizeof(MySettings) == 40, "MySettings Size is not 40 bytes");
 
 
 /* ******************************************************** */
@@ -347,13 +347,13 @@ void IRAM_ATTR FlowCtrIsr(void)
     if bitRead (FlowCtr->pin_state, 0)
     {
       // last valid pin state was high, current pin state is low
-      if (debounce_time <= MySettings.flow_debounce_high * 1000)
+      if (debounce_time <= Settings->FlowCtr_debounce_high * 1000)
         return;
     }
     else
     {
       // last valid pin state was low, current pin state is high
-      if (debounce_time <= MySettings.flow_debounce_low * 1000)
+      if (debounce_time <= Settings->FlowCtr_debounce_low * 1000)
         return;
     }
     // passed debounce check, save pin state and timing
@@ -366,7 +366,7 @@ void IRAM_ATTR FlowCtrIsr(void)
     }
   }
   debounce_time = CurrentTimeISR - FlowCtr->timer;
-  if (debounce_time > (MySettings.flow_debounce * 1000))
+  if (debounce_time > (Settings->FlowCtr_debounce * 1000))
   {
     FlowCtr->timer = CurrentTimeISR;
     flow_pulse_period = debounce_time;          // pulse period
@@ -405,20 +405,18 @@ bool FlowCtrPinState(void)
 /* ******************************************************** */
 void FlowCtrInit(void)
 {
-
- 
   if (PinUsed(GPIO_FLOW))
   {
-    FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated
+    FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated of struc
 
-    if (!FlowCtr) 
+    if (!FlowCtr)                                                     // check to make sure we have allocated memory!
     {
       AddLog(LOG_LEVEL_DEBUG, PSTR("Flow Sensor: out of memory"));
       return;
     }
     AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %u"), " Size of FlowCtr = ",  sizeof(FlowCtr));
     pinMode(Pin(GPIO_FLOW), bitRead(FlowCtr->no_pullup, 0) ? INPUT : INPUT_PULLUP);
-    if ((MySettings.flow_debounce_low == 0) && (MySettings.flow_debounce_high == 0))
+    if ((Settings->FlowCtr_debounce_low == 0) && (Settings->FlowCtr_debounce_high == 0))
     {
       FlowCtr->pin_state = 0;
       attachInterrupt(Pin(GPIO_FLOW), FlowCtrIsr, FALLING);
@@ -430,7 +428,7 @@ void FlowCtrInit(void)
     }
 
   // Lets setup display units ....
-  switch (MySettings.flow_units)  
+  switch (Settings->FlowCtr_units)  
     {
       default:
       case 0:
@@ -473,6 +471,22 @@ void FlowCtrInit(void)
     FlowCtr->OneHour =                    0;    // event timers....
     FlowCtr->OneDay =                     0;
 
+    // lets set global varables to defaults
+    Settings->FlowCtr_type =                        0;        // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
+    Settings->FlowCtr_units =                       0;        // Current flow units
+    Settings->FlowCtr_debounce_low =                0;        // Current debounce values...
+    Settings->FlowCtr_debounce_high =               0;
+    Settings->FlowCtr_debounce =                    0;
+    Settings->FlowCtr_MQTT_bit_mask =          0xffff;        // MQTT Bit Mask, Controls what we send
+    Settings->FlowCtr_current_send_interval =      10;        // in seconds
+    Settings->flow_threshold_time =        20 * 60 * 1000000; // Excessive flow threshold timeout, in microseconds (20 Min)  
+    Settings->FlowCtr_max_flow_reset_time = 4 * 60 * 1000000; // Reset flow if no pulse within this window, in microseconds
+    Settings->FlowCtr_max_flow_rate  =           60.0;        // Sensor Max Flow rate in units of flow...
+    Settings->FlowCtr_threshold_max =            20.0;        // Excessive flow threshold in units of flow
+    Settings->FlowCtr_rate_factor =               1.0;        // Current Rate Factor
+    Settings->FlowCtr_k =                        .153;        // For K-Offset flow sensor (--> CST 1in ELF sensor)
+    Settings->FlowCtr_offset =                  1.047;        // Current Offset
+
   }   // end of: if (PinUsed(GPIO_FLOW))
 
   // This is an optional LED indicator of flow pulse's from the sensor
@@ -497,14 +511,14 @@ void FlowCtrBoundsCheck(void)                 // Lets do a bounds check
     
       // Lets Check that we don't get unreasonable large flow value.
       // could happen when long's wraps or false interrupt triggered
-      if ( FlowCtr->CurrentFlow >= MySettings.max_flow_rate)
+      if ( FlowCtr->CurrentFlow >= Settings->FlowCtr_max_flow_rate)
       {  
         AddLog( LOG_LEVEL_INFO, PSTR("%s: %9.2f"), " Flow rate over max !",  FlowCtr->CurrentFlow);
-        FlowCtr->CurrentFlow = MySettings.max_flow_rate;     // set to max
+        FlowCtr->CurrentFlow = Settings->FlowCtr_max_flow_rate;     // set to max
       }
 
       // check for possible flow over threshold 
-      if ( FlowCtr->CurrentFlow >= MySettings.flow_threshold_max) 
+      if ( FlowCtr->CurrentFlow >= Settings->FlowCtr_threshold_max) 
       {
         if (FlowCtr->WeHaveFlowOverThreshold == false)  FlowCtr->ExcessiveFlowStartTime = micros();           // set timer
         FlowCtr->WeHaveFlowOverThreshold = true;
@@ -537,19 +551,19 @@ void FlowCtrFlowEverySecond(void)
         float  freq = (1.0 / ((float) flow_pulse_period / 1000000.0)); 
         if (freq <= 0.0) freq = 0.0;
         // Calculate current flow rate based on sensor type
-        switch (MySettings.flow_type)
+        switch (Settings->FlowCtr_type)
         {
           default:
           case 0:   // we have Type 0 flow sensor, units per minute (ie: GPM..)
-                FlowCtr->CurrentFlow = (( (float) (MySettings.current_sending_interval) * 1000000.0) / (float) flow_pulse_period ) * (60.0 / (float) MySettings.current_sending_interval);
+                FlowCtr->CurrentFlow = (( (float) (Settings->FlowCtr_current_send_interval) * 1000000.0) / (float) flow_pulse_period ) * (60.0 / (float) Settings->FlowCtr_current_send_interval);
           break;
 
-          case 1:   // we have Type 1 flow sensor, K-Offset *      flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset   // MySettings.flow_rate_factor
-                FlowCtr->CurrentFlow = (( freq + MySettings.flow_offset ) *  MySettings.flow_k);
+          case 1:   // we have Type 1 flow sensor, K-Offset *      flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset   // Settings->FlowCtr_rate_factor
+                FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) *  Settings->FlowCtr_k);
           break;
 
           case 2:   // we have Type 2 flow sensor, K-Offset /      flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
-                FlowCtr->CurrentFlow = (( freq + MySettings.flow_offset ) /  MySettings.flow_k);
+                FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) /  Settings->FlowCtr_k);
           break;
         }
         AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %8.4f, %8.4f,  %u,  %8.4fHz"), "Flow rate", FlowCtr->CurrentFlow, FlowCtr->OldFlowRate, flow_pulse_period, freq);
@@ -586,25 +600,25 @@ void FlowCtrFlowEverySecond(void)
       // As flow sensor have lots of jitter, we will round the flow values to one decimal point for our test of "sufficient flow change".
       float OFR = round(FlowCtr->OldFlowRate * 10) / 10;
       float CF  = round(FlowCtr->CurrentFlow * 10) / 10;
-      if  ((OFR != CF) && (FlowCtr->SendingRate >= MySettings.current_sending_interval))
+      if  ((OFR != CF) && (FlowCtr->SendingRate >= Settings->FlowCtr_current_send_interval))
       {
         FlowCtr->SendingRate = 0;                                // reset sample rate...
         ResponseClear();
         Response_P(PSTR("{\"FLOW\":{"));
-        if (MySettings.flow_type == 0)
+        if (Settings->FlowCtr_type == 0)
         {
-          if bitRead (MySettings.MQTT_send_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowCount\":%lu,"), current_pulse_counter );
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowCount\":%lu,"), current_pulse_counter );
         }
-        if bitRead (MySettings.MQTT_send_bit_mask, 1)  ResponseAppend_P(PSTR("\"Flow\":%9.2f,"), (float) FlowCtr->CurrentFlow * MySettings.flow_rate_factor);
-        if bitRead (MySettings.MQTT_send_bit_mask, 10) ResponseAppend_P(PSTR("\"Current1HrVolume\":%9.2f,"),  FlowCtr->Current1hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 11) ResponseAppend_P(PSTR("\"Current24HrVolume\":%9.2f,"), FlowCtr->Current24hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"), FlowCtr->VolumePerFlow);
-        if bitRead (MySettings.MQTT_send_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1)  ResponseAppend_P(PSTR("\"Flow\":%9.2f,"), (float) FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("\"Current1HrVolume\":%9.2f,"),  FlowCtr->Current1hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("\"Current24HrVolume\":%9.2f,"), FlowCtr->Current24hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"), FlowCtr->VolumePerFlow);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");
 
         ResponseJsonEndEnd();
         MqttPublishPayloadPrefixTopicRulesProcess_P(STAT, D_RSLT_SENSOR, (char*) TasmotaGlobal.mqtt_data.c_str());
         ResponseClear();
-      }   // end of:  if  ((OFR != CF) && (SendingRate >= MySettings.current_sending_interval))
+      }   // end of:  if  ((OFR != CF) && (SendingRate >= Settings->FlowCtr_current_send_interval))
   }    // end of: if (PinUsed(GPIO_FLOW))                
 }   // end of: FlowCtrFlowEverySecond(void)
  
@@ -613,29 +627,29 @@ void FlowCtrFlowEverySecond(void)
 // this will reset our flow if no flow pulse for an extended amount of time...
 void FlowCtrCheckFlowTimeOut(void) 
 {
-    if ( ((FlowCtr->CurrentTime - FlowCtr->CurrentFlowStartTime) >= MySettings.max_flow_reset_time) && FlowCtr->WeHaveFlow == true)
+    if ( ((FlowCtr->CurrentTime - FlowCtr->CurrentFlowStartTime) >= Settings->FlowCtr_max_flow_reset_time) && FlowCtr->WeHaveFlow == true)
     {
       FlowCtr->WeHaveFlow = false;
       FlowCtr->LastPulseCount = current_pulse_counter;             // reset pulse count
       FlowCtr->CurrentFlow = 0.0;                                  // so lets reset counters 
       FlowCtr->VolumePerFlow = 0.0;                  
       flow_pulse_period = 0;
-      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have a flow time out !",  FlowCtr->CurrentFlow, MySettings.max_flow_reset_time);
+      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have a flow time out !",  FlowCtr->CurrentFlow, Settings->FlowCtr_max_flow_reset_time);
     }
 }   // end of: void FlowCtrCheckFlowTimeOut(void)
 
 
 /* ******************************************************** */
 // this will check to see if we have a flow over our threshold rate for a preset amount of time..
-// we may have a stuck valve or ?? If MySettings.flow_threshold_time = 0, we will skip this 
+// we may have a stuck valve or ?? If Settings->flow_threshold_time = 0, we will skip this 
 void FlowCtrCheckExcessiveFlow(void)
 {
-  if ( MySettings.flow_threshold_time > 0)                          // skip Excessive Flow test if zero
+  if ( Settings->flow_threshold_time > 0)                          // skip Excessive Flow test if zero
   {
-    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + MySettings.flow_threshold_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
+    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + Settings->flow_threshold_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
     {
       FlowCtr->WeHaveExcessFlow = true;
-      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, MySettings.flow_threshold_time);
+      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, Settings->flow_threshold_time);
     } 
     else
     {
@@ -674,27 +688,27 @@ void FlowCtrShow(bool json)
       {
         if (!header) ResponseAppend_P(PSTR(",\"FLOW\":{"));
 
-        if (MySettings.flow_type == 0)                  // if we have Type 0 flow sensor.
+        if (Settings->FlowCtr_type == 0)                  // if we have Type 0 flow sensor.
         {
-          if bitRead (MySettings.MQTT_send_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowCount\":%lu,"),   (header) ? "," : "", current_pulse_counter);
-          if bitRead (MySettings.MQTT_send_bit_mask, 5) ResponseAppend_P(PSTR("%s\"RateFactor\":%9.4f,"),(header) ? "," : "", MySettings.flow_rate_factor); 
-          if bitRead (MySettings.MQTT_send_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Flow\":%9.4f,"),      (header) ? "," : "", FlowCtr->CurrentFlow * MySettings.flow_rate_factor);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowCount\":%lu,"),   (header) ? "," : "", current_pulse_counter);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 5) ResponseAppend_P(PSTR("%s\"RateFactor\":%9.4f,"),(header) ? "," : "", Settings->FlowCtr_rate_factor); 
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Flow\":%9.4f,"),      (header) ? "," : "", FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor);
         }
         else                                            // if we have Type 1 or 2 flow sensor.
         {
-          if bitRead (MySettings.MQTT_send_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Flow\":%9.4f,"),      (header) ? "," : "", FlowCtr->CurrentFlow);
-          if bitRead (MySettings.MQTT_send_bit_mask, 6) ResponseAppend_P(PSTR("%s\"K\":%9.4f,"),         (header) ? "," : "", MySettings.flow_k);
-          if bitRead (MySettings.MQTT_send_bit_mask, 7) ResponseAppend_P(PSTR("%s\"Offset\":%9.4f,"),    (header) ? "," : "", MySettings.flow_offset);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Flow\":%9.4f,"),      (header) ? "," : "", FlowCtr->CurrentFlow);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 6) ResponseAppend_P(PSTR("%s\"K\":%9.4f,"),         (header) ? "," : "", Settings->FlowCtr_k);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 7) ResponseAppend_P(PSTR("%s\"Offset\":%9.4f,"),    (header) ? "," : "", Settings->FlowCtr_offset);
         }
-        if bitRead (MySettings.MQTT_send_bit_mask, 2) ResponseAppend_P(PSTR("%s\"FlowPeriod\":%9.4f,"),  (header) ? "," : "", (float) flow_pulse_period / 1000000.0);
-        if bitRead (MySettings.MQTT_send_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"),  (header) ? "," : "", FlowCtr->VolumePerFlow);
-        if bitRead (MySettings.MQTT_send_bit_mask, 3) ResponseAppend_P(PSTR("%s\"1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Saved1hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 4) ResponseAppend_P(PSTR("%s\"24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Saved24hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 10) ResponseAppend_P(PSTR("%s\"Current1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Current1hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 11) ResponseAppend_P(PSTR("%s\"Current24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Current24hrFlowVolume);
-        if bitRead (MySettings.MQTT_send_bit_mask, 8) ResponseAppend_P(PSTR("%s\"FlowUnits\":\"%s\","),    (header) ? "," : "", FlowCtr->Current_Units);
-        if bitRead (MySettings.MQTT_send_bit_mask, 9) ResponseAppend_P(PSTR("%s\"VolumeUnits\":\"%s\","),  (header) ? "," : "", FlowCtr->Current_Volume_Units);
-        if bitRead (MySettings.MQTT_send_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");    
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 2) ResponseAppend_P(PSTR("%s\"FlowPeriod\":%9.4f,"),  (header) ? "," : "", (float) flow_pulse_period / 1000000.0);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"),  (header) ? "," : "", FlowCtr->VolumePerFlow);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 3) ResponseAppend_P(PSTR("%s\"1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Saved1hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 4) ResponseAppend_P(PSTR("%s\"24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Saved24hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("%s\"Current1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Current1hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("%s\"Current24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Current24hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 8) ResponseAppend_P(PSTR("%s\"FlowUnits\":\"%s\","),    (header) ? "," : "", FlowCtr->Current_Units);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 9) ResponseAppend_P(PSTR("%s\"VolumeUnits\":\"%s\","),  (header) ? "," : "", FlowCtr->Current_Volume_Units);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");    
         header = true;
 
 // no flow Domoticz option done here as we are not sure what one may needed for Domoticz....
@@ -714,17 +728,17 @@ void FlowCtrShow(bool json)
         if ( freq <= 0.0) freq = 0.0;
         WSContentSend_PD(PSTR("{s}" D_FLOW_PERIOD "{m}%9.4f %s{e}"), (float) flow_pulse_period / 1000000.0, D_UNIT_SECOND);
         WSContentSend_PD(PSTR("{s}" D_Flow_Frequency "{m}%9.2f %s{e}"), freq, D_UNIT_HZ);
-        if (MySettings.flow_type == 0)            // Check for type 0 sensor
+        if (Settings->FlowCtr_type == 0)            // Check for type 0 sensor
         {
-          WSContentSend_PD(PSTR("{s}" D_FLOW_RATE "{m}%9.2f %s{e}"), (FlowCtr->CurrentFlow * MySettings.flow_rate_factor), FlowCtr->Current_Units);
+          WSContentSend_PD(PSTR("{s}" D_FLOW_RATE "{m}%9.2f %s{e}"), (FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor), FlowCtr->Current_Units);
           WSContentSend_PD(PSTR("{s}" D_FLOW_COUNT "{m}%lu{e}"), current_pulse_counter);
-          WSContentSend_PD(PSTR("{s}" D_Flow_Factor "{m}%9.2f{e}"),  MySettings.flow_rate_factor);  
+          WSContentSend_PD(PSTR("{s}" D_Flow_Factor "{m}%9.2f{e}"),  Settings->FlowCtr_rate_factor);  
         }
         else                                      // We have Type 1 or 2 flow sensor, then we will send K & Offset                
         {
           WSContentSend_PD(PSTR("{s}" D_FLOW_RATE "{m}%9.2f %s{e}"), FlowCtr->CurrentFlow, FlowCtr->Current_Units);
-          WSContentSend_PD(PSTR("{s}" D_Flow_K "{m}%9.3f{e}"), MySettings.flow_k);
-          WSContentSend_PD(PSTR("{s}" D_Flow_Offset "{m}%9.3f{e}"), MySettings.flow_offset);
+          WSContentSend_PD(PSTR("{s}" D_FlowCtr_k "{m}%9.3f{e}"), Settings->FlowCtr_k);
+          WSContentSend_PD(PSTR("{s}" D_FlowCtr_offset "{m}%9.3f{e}"), Settings->FlowCtr_offset);
         }
         WSContentSend_PD(PSTR("{s}" " This Flow{m}%9.0f %s{e}"),  FlowCtr->VolumePerFlow,   FlowCtr->Current_Volume_Units);
         WSContentSend_PD(PSTR("{s}" " Current 1Hr Flow{m}%9.0f %s{e}"),  FlowCtr->Current1hrFlowVolume,   FlowCtr->Current_Volume_Units);
@@ -769,97 +783,97 @@ bool Xsns125Cmnd(void)
                                                         // check range of type, 0-->2 only
       if (((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) >= 0) && ((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) <= 2))
       {
-        MySettings.flow_type = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);
-        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Flow Type", MySettings.flow_type);
+        Settings->FlowCtr_type = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Flow Type", Settings->FlowCtr_type);
       }
       break;
 
     case 2: // Flow Factor
-      MySettings.flow_rate_factor = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 2, Flow Factor", MySettings.flow_rate_factor);
+      Settings->FlowCtr_rate_factor = CharToFloat(ArgV(argument, 2));
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 2, Flow Factor", Settings->FlowCtr_rate_factor);
       break;
 
     case 3: // Flow K
-      MySettings.flow_k = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 3, Flow K", MySettings.flow_k);
+      Settings->FlowCtr_k = CharToFloat(ArgV(argument, 2));
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 3, Flow K", Settings->FlowCtr_k);
       break;
 
     case 4: // Flow Offset
-      MySettings.flow_offset = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 4, Flow Offset", MySettings.flow_offset);
+      Settings->FlowCtr_offset = CharToFloat(ArgV(argument, 2));
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 4, Flow Offset", Settings->FlowCtr_offset);
       break;
 
     case 5: // Flow Units
-      MySettings.flow_units = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 5, Flow Units", MySettings.flow_units);
+      Settings->FlowCtr_units = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 5, Flow Units", Settings->FlowCtr_units);
       break;
 
     case 6: // Excess flow threshold max count
-      MySettings.flow_threshold_max = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 6, Max Flow", MySettings.flow_threshold_max);
+      Settings->FlowCtr_threshold_max = CharToFloat(ArgV(argument, 2));
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "Case 6, Max Flow", Settings->FlowCtr_threshold_max);
       break;
 
     case 7:   // Flow Threshold Time in second's (convert to miliseconds)
-      MySettings.flow_threshold_time = (60000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", MySettings.flow_threshold_time);
+      Settings->flow_threshold_time = (60000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", Settings->flow_threshold_time);
       break;
 
     case 8:  // Current Sample Interval in second's, lower limit to 10 seconds
-      if ((uint16_t) strtol(ArgV(argument, 2), nullptr, 10) == 0)   MySettings.current_sending_interval = 1;
-      else MySettings.current_sending_interval = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 8, Sample Interval", MySettings.current_sending_interval);
+      if ((uint16_t) strtol(ArgV(argument, 2), nullptr, 10) == 0)   Settings->FlowCtr_current_send_interval = 1;
+      else Settings->FlowCtr_current_send_interval = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 8, Sample Interval", Settings->FlowCtr_current_send_interval);
       break; 
 
     case 9:   // MQTT Bit Mask, 16 bits
-      MySettings.MQTT_send_bit_mask = (uint16_t) strtol(ArgV(argument, 2), nullptr, 16);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: 0x%04x"), "Case 9, MQTT Bit Mask", MySettings.MQTT_send_bit_mask);
+      Settings->FlowCtr_MQTT_bit_mask = (uint16_t) strtol(ArgV(argument, 2), nullptr, 16);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: 0x%04x"), "Case 9, MQTT Bit Mask", Settings->FlowCtr_MQTT_bit_mask);
       break;
 
     case 10: // Max Flow reset time in second's (convert to microseconds)
-      if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) MySettings.max_flow_reset_time = 10000000;
-      else MySettings.max_flow_reset_time = (1000000) * strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", MySettings.max_flow_reset_time);
+      if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 10000000;
+      else Settings->FlowCtr_max_flow_reset_time = (1000000) * strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", Settings->FlowCtr_max_flow_reset_time);
       break;
       
     case 11: // Max Flo Rate
-      MySettings.max_flow_rate = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 11, Max Flow Rate", MySettings.max_flow_rate);
+      Settings->FlowCtr_max_flow_rate = CharToFloat(ArgV(argument, 2));
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 11, Max Flow Rate", Settings->FlowCtr_max_flow_rate);
       break;
 
     case 12: // Flow Debounce time in MS
-      MySettings.flow_debounce = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 12, Flow Debounce", MySettings.flow_debounce);
+      Settings->FlowCtr_debounce = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 12, Flow Debounce", Settings->FlowCtr_debounce);
       break;
 
     case 13: // Flow Debounce Low time in MS
-      MySettings.flow_debounce_low = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 13, Flow Debounce Low", MySettings.flow_debounce_low);
+      Settings->FlowCtr_debounce_low = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 13, Flow Debounce Low", Settings->FlowCtr_debounce_low);
       break;
 
     case 14: // Flow Debounce High time in MS
-      MySettings.flow_debounce_high = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 14, Flow Debounce High", MySettings.flow_debounce_high);
+      Settings->FlowCtr_debounce_high = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 14, Flow Debounce High", Settings->FlowCtr_debounce_high);
       break;
     }
   }
 
 // build a JSON response
-  Response_P(PSTR("{\"" D_FLOWMETER_NAME "\":{\"Flow Type\":%d"), MySettings.flow_type);
-  ResponseAppend_P(PSTR(",\"Flow Rate Factor\":%7.2f"), MySettings.flow_rate_factor);
-  ResponseAppend_P(PSTR(",\"Flow K\":%7.2f"), MySettings.flow_k);
-  ResponseAppend_P(PSTR(",\"Flow Offset\":%7.2f"), MySettings.flow_offset);
-  ResponseAppend_P(PSTR(",\"Flow Units\":%d"), MySettings.flow_units);
-  ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%7.2f"), MySettings.flow_threshold_max);
-  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), MySettings.flow_threshold_time);
-  ResponseAppend_P(PSTR(",\"Flow Sample Interval\":%u"), MySettings.current_sending_interval);
+  Response_P(PSTR("{\"" D_FLOWMETER_NAME "\":{\"Flow Type\":%d"), Settings->FlowCtr_type);
+  ResponseAppend_P(PSTR(",\"Flow Rate Factor\":%7.2f"), Settings->FlowCtr_rate_factor);
+  ResponseAppend_P(PSTR(",\"Flow K\":%7.2f"), Settings->FlowCtr_k);
+  ResponseAppend_P(PSTR(",\"Flow Offset\":%7.2f"), Settings->FlowCtr_offset);
+  ResponseAppend_P(PSTR(",\"Flow Units\":%d"), Settings->FlowCtr_units);
+  ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%7.2f"), Settings->FlowCtr_threshold_max);
+  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), Settings->flow_threshold_time);
+  ResponseAppend_P(PSTR(",\"Flow Sample Interval\":%u"), Settings->FlowCtr_current_send_interval);
   char hex_data[8];
-  sprintf(hex_data, "%04x", MySettings.MQTT_send_bit_mask);
+  sprintf(hex_data, "%04x", Settings->FlowCtr_MQTT_bit_mask);
   ResponseAppend_P(PSTR(",\"MQTT Bit Mask\":\"0x%s\""), hex_data );
-  ResponseAppend_P(PSTR(",\"Max Flow Reset Time\":%u"), MySettings.max_flow_reset_time);
-  ResponseAppend_P(PSTR(",\"Max Flow Rate\":%7.2f"), MySettings.max_flow_rate);
-  ResponseAppend_P(PSTR(",\"Flow Debounce \":%u"), MySettings.flow_debounce);
-  ResponseAppend_P(PSTR(",\"Flow Debounce Low \":%u"), MySettings.flow_debounce_low);
-  ResponseAppend_P(PSTR(",\"Flow Debounce High \":%u"), MySettings.flow_debounce_high);
+  ResponseAppend_P(PSTR(",\"Max Flow Reset Time\":%u"), Settings->FlowCtr_max_flow_reset_time);
+  ResponseAppend_P(PSTR(",\"Max Flow Rate\":%7.2f"), Settings->FlowCtr_max_flow_rate);
+  ResponseAppend_P(PSTR(",\"Flow Debounce \":%u"), Settings->FlowCtr_debounce);
+  ResponseAppend_P(PSTR(",\"Flow Debounce Low \":%u"), Settings->FlowCtr_debounce_low);
+  ResponseAppend_P(PSTR(",\"Flow Debounce High \":%u"), Settings->FlowCtr_debounce_high);
   ResponseJsonEndEnd();
   return true;
 
