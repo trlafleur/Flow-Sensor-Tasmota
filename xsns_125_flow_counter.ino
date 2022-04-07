@@ -297,7 +297,6 @@ struct FLOWCTR
   uint8_t     pin_state;                 // LSB0..3 Last state of counter pin; LSB7==0 IRQ is FALLING, LSB7==1 IRQ is CHANGE
   uint32_t    timer;                     // Last flow time in micro seconds
   uint32_t    timer_low_high;            // Last low/high flow counter time in micro seconds
-  bool        counter;                   // 
   uint32_t    OneHour;                   // event timers....
   uint32_t    OneDay;
   uint32_t    SendingRate;               // Current sample rate count
@@ -319,8 +318,8 @@ struct FLOWCTR
   bool        WeHaveFlowOverThreshold;    // true if current flow exceed threshold
   bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded flow_threshold_time
 } ;
-//static_assert(sizeof(FlowCtr) == 90, "FlowCtr Size is not 60 bytes");
-struct FLOWCTR *FlowCtr;
+
+static struct FLOWCTR *FlowCtr = nullptr;
 
 // Forward declarations...
 void FlowCtrCheckFlowTimeOut(void);
@@ -406,15 +405,18 @@ bool FlowCtrPinState(void)
 /* ******************************************************** */
 void FlowCtrInit(void)
 {
+
+  //AddLog( LOG_LEVEL_INFO, PSTR("%s: %u"), " Size of FlowCtr !",  sizeof(FlowCtr));
   if (PinUsed(GPIO_FLOW))
   {
-    //FlowCtr = (struct FLOWCTR*) malloc(sizeof(struct FLOWCTR));
-    FlowCtr = (struct FLOWCTR*) malloc(sizeof(*FlowCtr));
-    // xdrv_44_iel_hvac.ino
-    // sc = (struct miel_hvac_softc *) malloc(sizeof(*sc));
-    if (FlowCtr == NULL)  AddLog( LOG_LEVEL_ERROR, PSTR("%s:"), " malloc failed in Flow sensor...!");
+    FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated
 
-    FlowCtr->counter = true; 
+    if (!FlowCtr) 
+    {
+      AddLog(LOG_LEVEL_DEBUG, PSTR("Flow Sensor: out of memory"));
+      return;
+    }
+
     pinMode(Pin(GPIO_FLOW), bitRead(FlowCtr->no_pullup, 0) ? INPUT : INPUT_PULLUP);
     if ((MySettings.flow_debounce_low == 0) && (MySettings.flow_debounce_high == 0))
     {
@@ -872,7 +874,7 @@ bool Xsns125(uint8_t function)
 {
   bool result = false;
 
-  if (FlowCtr->counter)
+  if (FUNC_INIT == function)
   {  
     switch (function)
     {
