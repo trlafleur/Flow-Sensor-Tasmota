@@ -406,7 +406,7 @@ bool FlowCtrPinState(void)
 void FlowCtrInit(void)
 {
 
-  //AddLog( LOG_LEVEL_INFO, PSTR("%s: %u"), " Size of FlowCtr !",  sizeof(FlowCtr));
+ 
   if (PinUsed(GPIO_FLOW))
   {
     FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated
@@ -416,7 +416,7 @@ void FlowCtrInit(void)
       AddLog(LOG_LEVEL_DEBUG, PSTR("Flow Sensor: out of memory"));
       return;
     }
-
+    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %u"), " Size of FlowCtr = ",  sizeof(FlowCtr));
     pinMode(Pin(GPIO_FLOW), bitRead(FlowCtr->no_pullup, 0) ? INPUT : INPUT_PULLUP);
     if ((MySettings.flow_debounce_low == 0) && (MySettings.flow_debounce_high == 0))
     {
@@ -874,9 +874,13 @@ bool Xsns125(uint8_t function)
 {
   bool result = false;
 
-  if (FUNC_INIT == function)
-  {  
-    switch (function)
+  if (FUNC_INIT == function)    // check if we need to do FlowInit
+  {
+    FlowCtrInit();
+  }
+  else if (FlowCtr)             // check that we have allocated struct
+  {
+    switch (function)           // do functions as needed...
     {
     case FUNC_EVERY_SECOND:
       FlowCtrFlowEverySecond();
@@ -903,24 +907,15 @@ bool Xsns125(uint8_t function)
         result = Xsns125Cmnd();
       }
       break;
-    }
-  }
-  else
-  {
-    switch (function)
-    {
-    case FUNC_INIT:
-      FlowCtrInit();
-      break;
 
     case FUNC_PIN_STATE:
       result = FlowCtrPinState();
+      AddLog( LOG_LEVEL_DEBUG, PSTR("%s:"), " In Function Pin State");
       break;
-
-    }
-  }
+    }   // end of: switch (function)
+  }   // end of: else if (FlowCtr)
   return result;
-}
+}   // end of: bool Xsns125(uint8_t function)
 
 #endif    // end of USE_FLOW
 
