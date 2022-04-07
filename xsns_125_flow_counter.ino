@@ -26,7 +26,8 @@
  *  1-Oct-2021  1.0   TRL - first build
  *  3-Apr-2022  1.1   TRL - refactoring of code base
  *  5-Apr-2022  1.1a  TRL - added check for sufficient flow change
- *
+ *  7-Apr-2022  1.2   TRL - Data-struct was change to dynamic
+ *  70Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code
  *
  *  Notes:  1)  Tested with TASMOTA  11.0.0.3
  *          2)  ESP32
@@ -76,12 +77,12 @@
     Gallons per minute = (Frequency + Offset) * K  or  = (Frequency + offset) / K
 
     // flow meter type
-    FlowCtr_type   0   pulse per unit (GPM....)
-                1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset
-                2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
+    FlowCtr_type    0   pulse per unit (GPM....)
+                    1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset
+                    2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
 
     // unit per pulse from flow meter
-    rate_factor                                flow_units
+    FlowCtr_rate_factor                                flow_units
                 0.1   0.1 gal per minute            GPM
                 1       1 gal per minute            GPM
                 10      10 gal per minute           GPM
@@ -92,7 +93,7 @@
                 1       1 cubic meter               M3
                 1       1 litres                    LM
 
-    flow_units
+    FlowCtr_units
                 0 = GPM     Gallons per minutes   <--- defaults
                 1 = CFT     Cubic Feet per minutes
                 2 = M3      Cubic Metre per minutes
@@ -137,11 +138,11 @@
 
   format: Sensor125 1,2,3
 
-      1     FlowCtr_type   0   pulse per unit (GPM....)
-                        1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K)
-                        2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K)
+      1     type   0   pulse per unit (GPM....)
+                   1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K)
+                   2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K)
 
-      2     Flow rate_factor    // unit per pulse from flow meter examples, float
+      2     rate_factor    // unit per pulse from flow meter examples, float
                         0.1   0.1 gal per minute            GPM
                         1       1 gal per minute            GPM
                         10      10 gal per minute           GPM
@@ -214,6 +215,9 @@ at line 859
 #define D_SENSOR_FLOW          "H2O Flow"                                   // <---------------  TRL
 #define D_SENSOR_FLOW_N        "H2O Flow N"
 #define D_SENSOR_FLOW_LED      "H2O Flow Led"
+
+moved MySettings to settings.h
+changes settings.h at 726 and 782
 */
 
 
@@ -224,7 +228,6 @@ at line 859
   #define DEBUG
 #endif
 
-// #define FlowCtr->   FlowCtr->
 /*********************************************************************************************\
  * Flow sensors for Water meters, units per minute or K-Offset types...
 \*********************************************************************************************/
@@ -291,6 +294,7 @@ volatile uint32_t flow_pulse_period;
 volatile uint32_t current_pulse_counter;
 volatile bool     FlowLedState  = false; // LED toggles on every pulse 
 
+// local varables...
 struct FLOWCTR
 {
   uint8_t     no_pullup;                 // Counter input pullup flag (1 = No pullup)
@@ -318,7 +322,6 @@ struct FLOWCTR
   bool        WeHaveFlowOverThreshold;    // true if current flow exceed threshold
   bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded flow_threshold_time
 } ;
-
 static struct FLOWCTR *FlowCtr = nullptr;
 
 // Forward declarations...
@@ -326,6 +329,7 @@ void FlowCtrCheckFlowTimeOut(void);
 void FlowCtrCheckExcessiveFlow(void);
 void FlowCtrBoundsCheck(void);
 void FlowCtrFlowEverySecond(void);
+
 
 /* ******************************************************** */
 /* ******************************************************** */
@@ -407,7 +411,7 @@ void FlowCtrInit(void)
 {
   if (PinUsed(GPIO_FLOW))
   {
-    FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated of struc
+    FlowCtr = (struct FLOWCTR*) calloc(1,sizeof(struct FLOWCTR));     // instantiated of FlowCtr struc
 
     if (!FlowCtr)                                                     // check to make sure we have allocated memory!
     {
