@@ -14,6 +14,8 @@ specified: a K factor and Offset.
 During calibration the manufacturer measures the pulse rate outputs for a number of precise flow rates. These are plotted, but since the turbine has some friction, the graph will not be linear especially at the low end and a linear regression is done to get a best fit straight line.
 The K factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved. Offset represents the small amount of liquid flow required to start the turbine moving. You can assume that if any pulses are arriving at all, at least the offset volume of liquid is moving.
 
+The sensor is essentially a 6 to 20 Ohm switch with a less than 1ma leakage current . With no flow running (the impeller not turning), the sensor will appear to the controller input as a small current load . When the impeller is turning, it appears a quick series of 5 ms short circuits . 
+
 There does not seem to be a standard for how K factor flow meters are presented.
 Sensors output a pulse stream at a frequency proportional to the flow volume as calibrated.
 With the more common sensors like CST and Rainbird, you multiply the pulse frequency by the K factor to obtain a volume rate. Others however like Badger, require you to divide the pulse frequency by K. So one must read the vendors data sheet!
@@ -28,7 +30,7 @@ Gallons per minute = (Frequency + Offset) * K		CTS, Rainbird
 Gallons per minute = (Frequency + offset) / K		Badger
 ~~~
 In the schematic is the interface circuit that I use to interface the sensor to the ESP32.
-The comparator with some hysteresis is used to sense the pulse change and is cleaned up by the two TTL inverter. R4 and C3 provide the 1st level of debouncing of the pulse from the sensor.  Another option is to use an optocoupler. In the photo, is the ESP32 mounted in a waterproof encloser on a motherboard that provided power to the processor.
+The comparator with some hysteresis is used to sense the pulse change and is cleaned up by the two TTL inverter. R4 and C3 provide the 1st level of debouncing of the pulse from the sensor.  Another option is to use an optocoupler. In the photo, is the ESP32 mounted in a waterproof enclosure on a motherboard that provided power to the processor.
 
 The k-Offset sensor requires power to operate, this is done via a bias resistor giving proper operating current to the device. Such devices require about 20 to 100ma to operate at some minimal voltage. They produce a 5ms pulse at a rate from 1 to 200Hz.
 
