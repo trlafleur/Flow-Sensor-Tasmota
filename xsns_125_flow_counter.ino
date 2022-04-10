@@ -26,7 +26,7 @@
  *  1-Oct-2021  1.0   TRL - first build
  *  3-Apr-2022  1.1   TRL - refactoring of code base
  *  5-Apr-2022  1.1a  TRL - added check for sufficient flow change
- *  7-Apr-2022  1.2   TRL - Data-struct was change to dynamic
+ *  7-Apr-2022  1.2   TRL - Local Data-struct was change to dynamic
  *  70Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code
  *
  *  Notes:  1)  Tested with TASMOTA  11.0.0.3
@@ -218,6 +218,7 @@ at line 859
 
 moved MySettings to settings.h
 changes settings.h at 726 and 782
+set defaults in Settings.ino at line 1231
 */
 
 
@@ -276,10 +277,10 @@ changes settings.h at 726 and 782
 //   uint16_t FlowCtr_debounce_high =               0;
 //   uint16_t FlowCtr_debounce =                    0;
 //   uint16_t FlowCtr_MQTT_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
-//   uint16_t FlowCtr_current_send_interval =        10;    // in seconds
-//   uint32_t flow_threshold_time =  5 * 60 * 1000000; // Excessive flow threshold timeout, in microseconds (20 Min)  
-//   uint32_t FlowCtr_max_flow_reset_time =  1 * 60 * 1000000; // Reset flow if no pulse within this window, in microseconds
-//   float    FlowCtr_max_flow_rate  =                60.0;    // Sensor Max Flow rate in units of flow...
+//   uint16_t FlowCtr_current_send_interval =        10;  // in seconds
+//   uint32_t flow_threshold_reset_time =    5 * 60 * 1000; // Excessive flow threshold timeout, in milliseconds (20 Min)  
+//   uint32_t FlowCtr_max_flow_reset_time =  1 * 60 * 1000; // Reset flow if no pulse within this window, in milliseconds
+//   float    FlowCtr_max_flow_rate  =           60.0;    // Sensor Max Flow rate in units of flow...
 //   float    FlowCtr_threshold_max =            20.0;    // Excessive flow threshold in units of flow
 //   float    FlowCtr_rate_factor =               1.0;    // Current Rate Factor
 //   float    FlowCtr_k =                        .153;    // For K-Offset flow sensor (--> CST 1in ELF sensor)
@@ -290,8 +291,8 @@ changes settings.h at 726 and 782
 
 /* ******************************************************** */
 // Our Local global variables...
-volatile uint32_t flow_pulse_period;
-volatile uint32_t current_pulse_counter;
+volatile uint32_t flow_pulse_period;     // in microseconds
+volatile uint32_t current_pulse_count;
 volatile bool     FlowLedState  = false; // LED toggles on every pulse 
 
 // local varables...
@@ -299,10 +300,11 @@ struct FLOWCTR
 {
   uint8_t     no_pullup;                 // Counter input pullup flag (1 = No pullup)
   uint8_t     pin_state;                 // LSB0..3 Last state of counter pin; LSB7==0 IRQ is FALLING, LSB7==1 IRQ is CHANGE
-  uint32_t    timer;                     // Last flow time in micro seconds
+  uint32_t    timer;                     // Last flow time in microseconds
   uint32_t    timer_low_high;            // Last low/high flow counter time in micro seconds
+  uint32_t    OneMinute;                 // 
   uint32_t    OneHour;                   // event timers....
-  uint32_t    OneDay;
+  uint32_t    OneDay;                    //
   uint32_t    SendingRate;               // Current sample rate count
   uint32_t    LastPulseCount;            // use to check for new flow
   uint32_t    CurrentTime;               // Current time 
@@ -320,7 +322,7 @@ struct FLOWCTR
   char        Current_Volume_Units[8];
   bool        WeHaveFlow;                 // true if we have started a new flow
   bool        WeHaveFlowOverThreshold;    // true if current flow exceed threshold
-  bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded flow_threshold_time
+  bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded flow_threshold_reset_time
 } ;
 static struct FLOWCTR *FlowCtr = nullptr;
 
@@ -374,7 +376,7 @@ void IRAM_ATTR FlowCtrIsr(void)
   {
     FlowCtr->timer = CurrentTimeISR;
     flow_pulse_period = debounce_time;          // pulse period
-    current_pulse_counter++;                    // pulse count
+    current_pulse_count++;                      // pulse count
   }
   // Optional external LED to show each pulse
  if (PinUsed(GPIO_FLOW_LED)) 
@@ -418,7 +420,7 @@ void FlowCtrInit(void)
       AddLog(LOG_LEVEL_DEBUG, PSTR("Flow Sensor: out of memory"));
       return;
     }
-    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %u"), " Size of FlowCtr = ",  sizeof(FlowCtr));
+    
     pinMode(Pin(GPIO_FLOW), bitRead(FlowCtr->no_pullup, 0) ? INPUT : INPUT_PULLUP);
     if ((Settings->FlowCtr_debounce_low == 0) && (Settings->FlowCtr_debounce_high == 0))
     {
@@ -459,7 +461,7 @@ void FlowCtrInit(void)
     // pre set local working varables
     FlowCtr->ExcessiveFlowStartTime = micros(); // get current time..
 
-    current_pulse_counter =               0;    // set counts to zero on reboot...
+    current_pulse_count =                 0;    // set counts to zero on reboot...
     flow_pulse_period  =                  0;    // set period to zero on reboot...
 
     FlowCtr->WeHaveFlow =                false;
@@ -474,22 +476,23 @@ void FlowCtrInit(void)
     FlowCtr->VolumePerFlow  =           0.0;    // Volume for current flow
     FlowCtr->OneHour =                    0;    // event timers....
     FlowCtr->OneDay =                     0;
+    FlowCtr->OneMinute =                  0;
 
-    // lets set global varables to defaults
-    Settings->FlowCtr_type =                        0;        // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
-    Settings->FlowCtr_units =                       0;        // Current flow units
-    Settings->FlowCtr_debounce_low =                0;        // Current debounce values...
-    Settings->FlowCtr_debounce_high =               0;
-    Settings->FlowCtr_debounce =                    0;
-    Settings->FlowCtr_MQTT_bit_mask =          0xffff;        // MQTT Bit Mask, Controls what we send
-    Settings->FlowCtr_current_send_interval =      10;        // in seconds
-    Settings->flow_threshold_time =        20 * 60 * 1000000; // Excessive flow threshold timeout, in microseconds (20 Min)  
-    Settings->FlowCtr_max_flow_reset_time = 4 * 60 * 1000000; // Reset flow if no pulse within this window, in microseconds
-    Settings->FlowCtr_max_flow_rate  =           60.0;        // Sensor Max Flow rate in units of flow...
-    Settings->FlowCtr_threshold_max =            20.0;        // Excessive flow threshold in units of flow
-    Settings->FlowCtr_rate_factor =               1.0;        // Current Rate Factor
-    Settings->FlowCtr_k =                        .153;        // For K-Offset flow sensor (--> CST 1in ELF sensor)
-    Settings->FlowCtr_offset =                  1.047;        // Current Offset
+    // // lets set global varables to defaults, this is now set in settings.ino and is here just for information
+    // Settings->FlowCtr_type =                        0;        // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
+    // Settings->FlowCtr_units =                       0;        // Current flow units
+    // Settings->FlowCtr_debounce_low =                0;        // Current debounce values...
+    // Settings->FlowCtr_debounce_high =               0;
+    // Settings->FlowCtr_debounce =                    0;
+    // Settings->FlowCtr_MQTT_bit_mask =          0xffff;        // MQTT Bit Mask, Controls what we send
+    // Settings->FlowCtr_current_send_interval =      10;        // in seconds
+    // Settings->flow_threshold_reset_time =  20 * 60 * 1000;    // Excessive flow threshold timeout, in miliseconds (20 Min)  
+    // Settings->FlowCtr_max_flow_reset_time = 4 * 60 * 1000;    // Reset flow if no pulse within this window, in miliseconds
+    // Settings->FlowCtr_max_flow_rate  =           60.0;        // Sensor Max Flow rate in units of flow...
+    // Settings->FlowCtr_threshold_max =            20.0;        // Excessive flow threshold in units of flow
+    // Settings->FlowCtr_rate_factor =               1.0;        // Current Rate Factor
+    // Settings->FlowCtr_k =                        .153;        // For K-Offset flow sensor (--> CST 1in ELF sensor)
+    // Settings->FlowCtr_offset =                  1.047;        // Current Offset
 
   }   // end of: if (PinUsed(GPIO_FLOW))
 
@@ -502,6 +505,111 @@ void FlowCtrInit(void)
   }
 }   // end of: void FlowInit(void)
 
+
+/* ******************************************************** */
+/* ******************************************************** */
+void FlowCtrFlowEverySecond(void)
+{
+  TasmotaGlobal.seriallog_timer = 600;               // DEBUG Tool   <---------- TRL
+
+  FlowCtr->CurrentTime = millis();                   // get current time from system
+  FlowCtr->OneMinute++;
+  FlowCtr->OneHour++;                                // advance our event timers...
+  FlowCtr->OneDay++;
+  FlowCtr->SendingRate++;
+
+  if (PinUsed(GPIO_FLOW))                             // check to make sure we have a pin assigned
+  {
+    // check if it's time to do 1 minute task updates of volumes
+    if (FlowCtr->OneMinute >= 60)                                         // 60 sec
+    {
+      FlowCtr->OneMinute = 0;
+      FlowCtr->OldFlowRate = FlowCtr->CurrentFlow;                        // Save last flow rate
+
+      if (current_pulse_count > FlowCtr->LastPulseCount)                  // check to see if we have a new flow pulse
+      {                                                                   // yes, we have a flow...
+        FlowCtr->WeHaveFlow = true;
+        FlowCtr->LastPulseCount = current_pulse_count;                    // save current pulse count
+        FlowCtr->CurrentFlowStartTime = FlowCtr->CurrentTime;             // save start time of current flow
+
+        float  freq = (1.0 / ((float) flow_pulse_period / 1000000.0));    // flow_pulse_period is in microseconds
+        if (freq < 0.0) freq = 0.0;
+
+        // Calculate current flow rate based on sensor type
+        switch (Settings->FlowCtr_type)
+        {
+          default:
+           case 0:   // we have Type 0 flow sensor, units per minute (ie: GPM..)
+              FlowCtr->CurrentFlow = (60.0 / ((float) flow_pulse_period / 1000000.0)); // convert microseconds to seconds
+              AddLog( LOG_LEVEL_INFO, PSTR("%s:, %9.2f,  %u"), " flow rate, period !",  FlowCtr->CurrentFlow, flow_pulse_period);
+           break;
+
+          case 1:   // we have Type 1 flow sensor, K-Offset *  flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset   // Settings->FlowCtr_rate_factor
+              FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) *  Settings->FlowCtr_k);
+           break;
+
+          case 2:   // we have Type 2 flow sensor, K-Offset /  flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
+              FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) /  Settings->FlowCtr_k);
+          break;
+        }   // end of: switch (Settings->FlowCtr_type)
+
+        AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %8.4f, %8.4f,  %u,  %8.4fHz"), "Flow rate", FlowCtr->CurrentFlow, FlowCtr->OldFlowRate, flow_pulse_period, freq);
+        FlowCtrBoundsCheck();                                         // let make sure flow is reasonable...
+
+        FlowCtr->Current1hrFlowVolume  += FlowCtr->CurrentFlow ;      // update flow volumes, this give us flow per minute
+        FlowCtr->Current24hrFlowVolume += FlowCtr->CurrentFlow ;
+        FlowCtr->VolumePerFlow         += FlowCtr->CurrentFlow ;
+
+      }   // end of: if (current_pulse_count > FlowCtr->LastPulseCount)
+    }   // end of: if (FlowCtr->OneMinute >= 60)
+
+    // check if it's time to update 1hr flow rate
+    if (FlowCtr->OneHour >= 3600)                                 // 3600 sec
+    {
+      FlowCtr->OneHour = 0;
+       FlowCtr->Saved1hrFlowVolume = FlowCtr->Current1hrFlowVolume; 
+      FlowCtr->Current1hrFlowVolume = 0.0;                        // reset current 1hr flow volume
+    }
+
+    // check if it's time to update 24hr flow rate
+    if (FlowCtr->OneDay >= 86400)                                 // 86400 sec
+    {
+      FlowCtr->OneDay = 0;
+      FlowCtr->Saved24hrFlowVolume = FlowCtr->Current24hrFlowVolume;
+      FlowCtr->Current24hrFlowVolume = 0.0;                       // reset current 24hr flow volume
+    }
+
+    FlowCtrCheckExcessiveFlow();                                  // check for excessive flow over our threshold
+    FlowCtrCheckFlowTimeOut();                                    // check for a long no flow pulse time out limit...
+ 
+    // We are sending MQTT data only if we had a sufficient flow change in this period, with a minium send rate...
+    // As flow sensor have lots of jitter, we will round the flow values to one decimal point for our test of "sufficient flow change".
+    float OFR = round(FlowCtr->OldFlowRate * 10) / 10;
+    float CF  = round(FlowCtr->CurrentFlow * 10) / 10;
+
+    if  ((OFR != CF) && (FlowCtr->SendingRate >= Settings->FlowCtr_current_send_interval))
+    {
+      FlowCtr->SendingRate = 0;                                   // reset sample rate...
+      ResponseClear();
+      Response_P(PSTR("{\"FLOW\":{"));
+      if (Settings->FlowCtr_type == 0)
+      {
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowCount\":%lu,"), current_pulse_count );
+      }
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1)  ResponseAppend_P(PSTR("\"Flow\":%9.2f,"), (float) FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("\"Current1HrVolume\":%9.2f,"),  FlowCtr->Current1hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("\"Current24HrVolume\":%9.2f,"), FlowCtr->Current24hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"), FlowCtr->VolumePerFlow);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");
+
+      ResponseJsonEndEnd();
+      MqttPublishPayloadPrefixTopicRulesProcess_P(STAT, D_RSLT_SENSOR, (char*) TasmotaGlobal.mqtt_data.c_str());
+      ResponseClear();
+
+    }   // end of:  if  ((OFR != CF) && (SendingRate >= Settings->FlowCtr_current_send_interval))
+  }   // end of: if (PinUsed(GPIO_FLOW))                
+}   // end of: FlowCtrFlowEverySecond(void)
+ 
 
 /* ******************************************************** */
 void FlowCtrBoundsCheck(void)                 // Lets do a bounds check
@@ -518,13 +626,13 @@ void FlowCtrBoundsCheck(void)                 // Lets do a bounds check
       if ( FlowCtr->CurrentFlow >= Settings->FlowCtr_max_flow_rate)
       {  
         AddLog( LOG_LEVEL_INFO, PSTR("%s: %9.2f"), " Flow rate over max !",  FlowCtr->CurrentFlow);
-        FlowCtr->CurrentFlow = Settings->FlowCtr_max_flow_rate;     // set to max
+        FlowCtr->CurrentFlow = Settings->FlowCtr_max_flow_rate;                                               // set to max
       }
 
       // check for possible flow over threshold 
       if ( FlowCtr->CurrentFlow >= Settings->FlowCtr_threshold_max) 
       {
-        if (FlowCtr->WeHaveFlowOverThreshold == false)  FlowCtr->ExcessiveFlowStartTime = micros();           // set timer
+        if (FlowCtr->WeHaveFlowOverThreshold == false)  FlowCtr->ExcessiveFlowStartTime = millis();           // set timer
         FlowCtr->WeHaveFlowOverThreshold = true;
         AddLog( LOG_LEVEL_INFO, PSTR("%s: %9.2f"), " We have a flow over threshold !", FlowCtr->CurrentFlow);
       }
@@ -533,109 +641,14 @@ void FlowCtrBoundsCheck(void)                 // Lets do a bounds check
 
 
 /* ******************************************************** */
-void FlowCtrFlowEverySecond(void)
-{
-  TasmotaGlobal.seriallog_timer = 600;                // DEBUG Tool   <---------- TRL
-
-  FlowCtr->CurrentTime = micros();                    // get current time from system
-  FlowCtr->OneHour++;                                // advance our event timers...
-  FlowCtr->OneDay++;
-  FlowCtr->SendingRate++;
-
-  if (PinUsed(GPIO_FLOW))                             // check to make sure we have a pin assigned
-  {
-      FlowCtr->LastPulseTime = FlowCtr->CurrentTime - FlowCtr->timer;   // get time since last pulse
-      FlowCtr->OldFlowRate = FlowCtr->CurrentFlow;                      // Save last flow rate
-
-      if (current_pulse_counter > FlowCtr->LastPulseCount)     // check to see if we have a new flow pulse
-      {                                                        // yes, we have a flow...
-        FlowCtr->WeHaveFlow = true;
-        FlowCtr->LastPulseCount = current_pulse_counter;       // save current pulse count
-
-        float  freq = (1.0 / ((float) flow_pulse_period / 1000000.0)); 
-        if (freq <= 0.0) freq = 0.0;
-        // Calculate current flow rate based on sensor type
-        switch (Settings->FlowCtr_type)
-        {
-          default:
-          case 0:   // we have Type 0 flow sensor, units per minute (ie: GPM..)
-                FlowCtr->CurrentFlow = (( (float) (Settings->FlowCtr_current_send_interval) * 1000000.0) / (float) flow_pulse_period ) * (60.0 / (float) Settings->FlowCtr_current_send_interval);
-          break;
-
-          case 1:   // we have Type 1 flow sensor, K-Offset *      flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset   // Settings->FlowCtr_rate_factor
-                FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) *  Settings->FlowCtr_k);
-          break;
-
-          case 2:   // we have Type 2 flow sensor, K-Offset /      flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
-                FlowCtr->CurrentFlow = (( freq + Settings->FlowCtr_offset ) /  Settings->FlowCtr_k);
-          break;
-        }
-        AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %8.4f, %8.4f,  %u,  %8.4fHz"), "Flow rate", FlowCtr->CurrentFlow, FlowCtr->OldFlowRate, flow_pulse_period, freq);
-      }
-
-      FlowCtrBoundsCheck();                                                     // let make sure flow is reasonable..
-
-      FlowCtr->Current1hrFlowVolume  += FlowCtr->CurrentFlow * 0.01666667;      // update flow volumes by 1/60, this give us flow per minute
-      FlowCtr->Current24hrFlowVolume += FlowCtr->CurrentFlow * 0.01666667;
-      FlowCtr->VolumePerFlow         += FlowCtr->CurrentFlow * 0.01666667;
-
-      FlowCtr->CurrentFlowStartTime = FlowCtr->CurrentTime;                     // save start time of current flow
-
-      // check if it's time to send 1hr flow rate
-      if (FlowCtr->OneHour >= 3600)                              // 3600 sec
-      {
-        FlowCtr->OneHour = 0;
-        FlowCtr->Saved1hrFlowVolume = FlowCtr->Current1hrFlowVolume; 
-        FlowCtr->Current1hrFlowVolume = 0.0;                     // reset current 1hr flow volume
-      }
-
-      // check if it's time to send 24hr flow rate
-      if (FlowCtr->OneDay >= 86400)                              // 86400 sec
-      {
-        FlowCtr->OneDay = 0;
-        FlowCtr->Saved24hrFlowVolume = FlowCtr->Current24hrFlowVolume;
-        FlowCtr->Current24hrFlowVolume = 0.0;                    // reset current 24hr flow volume
-      }
-
-      FlowCtrCheckExcessiveFlow();                               // check for excessive flow over our threshold
-      FlowCtrCheckFlowTimeOut();                                 // check for a long no flow pulse time out limit...
- 
-      // We are sending MQTT data only if we had a sufficient flow change in this period, with a minium send rate...
-      // As flow sensor have lots of jitter, we will round the flow values to one decimal point for our test of "sufficient flow change".
-      float OFR = round(FlowCtr->OldFlowRate * 10) / 10;
-      float CF  = round(FlowCtr->CurrentFlow * 10) / 10;
-      if  ((OFR != CF) && (FlowCtr->SendingRate >= Settings->FlowCtr_current_send_interval))
-      {
-        FlowCtr->SendingRate = 0;                                // reset sample rate...
-        ResponseClear();
-        Response_P(PSTR("{\"FLOW\":{"));
-        if (Settings->FlowCtr_type == 0)
-        {
-          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowCount\":%lu,"), current_pulse_counter );
-        }
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1)  ResponseAppend_P(PSTR("\"Flow\":%9.2f,"), (float) FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("\"Current1HrVolume\":%9.2f,"),  FlowCtr->Current1hrFlowVolume);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("\"Current24HrVolume\":%9.2f,"), FlowCtr->Current24hrFlowVolume);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"), FlowCtr->VolumePerFlow);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");
-
-        ResponseJsonEndEnd();
-        MqttPublishPayloadPrefixTopicRulesProcess_P(STAT, D_RSLT_SENSOR, (char*) TasmotaGlobal.mqtt_data.c_str());
-        ResponseClear();
-      }   // end of:  if  ((OFR != CF) && (SendingRate >= Settings->FlowCtr_current_send_interval))
-  }    // end of: if (PinUsed(GPIO_FLOW))                
-}   // end of: FlowCtrFlowEverySecond(void)
- 
-
-/* ******************************************************** */
 // this will reset our flow if no flow pulse for an extended amount of time...
 void FlowCtrCheckFlowTimeOut(void) 
 {
-    if ( ((FlowCtr->CurrentTime - FlowCtr->CurrentFlowStartTime) >= Settings->FlowCtr_max_flow_reset_time) && FlowCtr->WeHaveFlow == true)
+    if (((FlowCtr->CurrentTime - FlowCtr->CurrentFlowStartTime) >= (Settings->FlowCtr_max_flow_reset_time)) && FlowCtr->WeHaveFlow == true)
     {
       FlowCtr->WeHaveFlow = false;
-      FlowCtr->LastPulseCount = current_pulse_counter;             // reset pulse count
-      FlowCtr->CurrentFlow = 0.0;                                  // so lets reset counters 
+      FlowCtr->LastPulseCount = current_pulse_count;                // reset pulse count
+      FlowCtr->CurrentFlow = 0.0;                                   // so lets reset counters 
       FlowCtr->VolumePerFlow = 0.0;                  
       flow_pulse_period = 0;
       AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have a flow time out !",  FlowCtr->CurrentFlow, Settings->FlowCtr_max_flow_reset_time);
@@ -645,15 +658,15 @@ void FlowCtrCheckFlowTimeOut(void)
 
 /* ******************************************************** */
 // this will check to see if we have a flow over our threshold rate for a preset amount of time..
-// we may have a stuck valve or ?? If Settings->flow_threshold_time = 0, we will skip this 
+// we may have a stuck valve or ?? If Settings->flow_threshold_reset_time = 0, we will skip this 
 void FlowCtrCheckExcessiveFlow(void)
 {
-  if ( Settings->flow_threshold_time > 0)                          // skip Excessive Flow test if zero
+  if ( Settings->flow_threshold_reset_time > 0)                      // skip Excessive Flow test if zero
   {
-    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + Settings->flow_threshold_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
+    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + Settings->flow_threshold_reset_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
     {
       FlowCtr->WeHaveExcessFlow = true;
-      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, Settings->flow_threshold_time);
+      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, Settings->flow_threshold_reset_time);
     } 
     else
     {
@@ -694,7 +707,7 @@ void FlowCtrShow(bool json)
 
         if (Settings->FlowCtr_type == 0)                  // if we have Type 0 flow sensor.
         {
-          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowCount\":%lu,"),   (header) ? "," : "", current_pulse_counter);
+          if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowCount\":%lu,"),   (header) ? "," : "", current_pulse_count);
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 5) ResponseAppend_P(PSTR("%s\"RateFactor\":%9.4f,"),(header) ? "," : "", Settings->FlowCtr_rate_factor); 
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Flow\":%9.4f,"),      (header) ? "," : "", FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor);
         }
@@ -735,7 +748,7 @@ void FlowCtrShow(bool json)
         if (Settings->FlowCtr_type == 0)            // Check for type 0 sensor
         {
           WSContentSend_PD(PSTR("{s}" D_FLOW_RATE "{m}%9.2f %s{e}"), (FlowCtr->CurrentFlow * Settings->FlowCtr_rate_factor), FlowCtr->Current_Units);
-          WSContentSend_PD(PSTR("{s}" D_FLOW_COUNT "{m}%lu{e}"), current_pulse_counter);
+          WSContentSend_PD(PSTR("{s}" D_FLOW_COUNT "{m}%lu{e}"), current_pulse_count);
           WSContentSend_PD(PSTR("{s}" D_Flow_Factor "{m}%9.2f{e}"),  Settings->FlowCtr_rate_factor);  
         }
         else                                      // We have Type 1 or 2 flow sensor, then we will send K & Offset                
@@ -818,8 +831,8 @@ bool Xsns125Cmnd(void)
       break;
 
     case 7:   // Flow Threshold Time in second's (convert to miliseconds)
-      Settings->flow_threshold_time = (60000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", Settings->flow_threshold_time);
+      Settings->flow_threshold_reset_time = (60000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", Settings->flow_threshold_reset_time);
       break;
 
     case 8:  // Current Sample Interval in second's, lower limit to 10 seconds
@@ -834,8 +847,8 @@ bool Xsns125Cmnd(void)
       break;
 
     case 10: // Max Flow reset time in second's (convert to microseconds)
-      if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 10000000;
-      else Settings->FlowCtr_max_flow_reset_time = (1000000) * strtol(ArgV(argument, 2), nullptr, 10);
+      if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 1000;
+      else Settings->FlowCtr_max_flow_reset_time = (1000) * strtol(ArgV(argument, 2), nullptr, 10);
       AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", Settings->FlowCtr_max_flow_reset_time);
       break;
       
@@ -868,7 +881,7 @@ bool Xsns125Cmnd(void)
   ResponseAppend_P(PSTR(",\"Flow Offset\":%7.2f"), Settings->FlowCtr_offset);
   ResponseAppend_P(PSTR(",\"Flow Units\":%d"), Settings->FlowCtr_units);
   ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%7.2f"), Settings->FlowCtr_threshold_max);
-  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), Settings->flow_threshold_time);
+  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), Settings->flow_threshold_reset_time);
   ResponseAppend_P(PSTR(",\"Flow Sample Interval\":%u"), Settings->FlowCtr_current_send_interval);
   char hex_data[8];
   sprintf(hex_data, "%04x", Settings->FlowCtr_MQTT_bit_mask);
