@@ -834,9 +834,9 @@ bool Xsns125Cmnd(void)
       break;
 
     case 10: // Max Flow reset time in second's (convert to milliseconds)                                                // <------------------- trl
-      if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 1000;
-      else Settings->FlowCtr_max_flow_reset_time = (1000) * strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", Settings->FlowCtr_max_flow_reset_time);
+      //if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 1000;
+      //else Settings->FlowCtr_max_flow_reset_time = (1000) * strtol(ArgV(argument, 2), nullptr, 10);
+      //AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", Settings->FlowCtr_max_flow_reset_time);
       break;
       
     case 11: // Max Flo Rate
@@ -873,7 +873,7 @@ bool Xsns125Cmnd(void)
   char hex_data[8];
   sprintf(hex_data, "%04x", Settings->FlowCtr_MQTT_bit_mask);
   ResponseAppend_P(PSTR(",\"MQTT Bit Mask\":\"0x%s\""), hex_data );
-  ResponseAppend_P(PSTR(",\"Max Flow Reset Time\":%u"), Settings->FlowCtr_max_flow_reset_time);
+  //ResponseAppend_P(PSTR(",\"Max Flow Reset Time\":%u"), Settings->FlowCtr_max_flow_reset_time);
   ResponseAppend_P(PSTR(",\"Max Flow Rate\":%7.2f"), Settings->FlowCtr_max_flow_rate);
   ResponseAppend_P(PSTR(",\"Flow Debounce \":%u"), Settings->FlowCtr_debounce);
   ResponseAppend_P(PSTR(",\"Flow Debounce Low \":%u"), Settings->FlowCtr_debounce_low);
