@@ -6,9 +6,10 @@
    We will use it in the 0 to 2.5V range as specified in the ESP32 reference document.
    Tasmota setting for the ATD are 12bits with ADC_ATTEN_DB set to 11.
    This ATD converter is a terribly inaccuracy, I do not recommend it for anything serious.
-   The ATD in the ESP32 is also not very linear at the bottom or top of its range and has
+   It's also not very linear at the bottom or top of its range and has
    a large offset, for us, this is not a real issue as the sensor has a voltage 
-   range of 0.5v for 0 PSI and 100 PSI at 4.5V and we will offset the reading. 
+   range of 0.5v for 0 PSI and 100 PSI at 4.5V and we will offset the reading as needed.
+    
    We are interested in a change of water pressure, and the accuracy is not real important. 
  
    We scalled the input voltage by 10k/10k resistors with a .1uf to gnd,
@@ -24,8 +25,10 @@
     50  psi = 2.5V * 0.5 = 1.25v = 1328
     100 psi = 4.5V * 0.5 = 2.25v = 2515
     
-    We have measured the ATD in our ESP32 and found these settings to work for us... good enough!
-    AdcParam1 6,138,2515,0,100    # We are using the scalling function built in to Tasmota
+    We have measured the ATD in our ESP32 and found these settings to work for us... 
+    Checking multiple devices, we found that they were sometimes off by 10% or more!
+    
+    AdcParam1 6,138,2515,0,100')    # We are using the scalling function built in to Tasmota
      
         
         ESP32 A TO D Reference:
@@ -137,7 +140,8 @@ end
 FlowPressure = FlowPressure()
 tasmota.add_driver(FlowPressure)
 
-tasmota.cmd('AdcParam1 6,138,2515,0,100')
-
+# for CB0454
+#tasmota.cmd('AdcParam1 6,138,2515,0,100')
+# for 286814
+tasmota.cmd('AdcParam1 6,175,2770,0,100')
 #- ************ The Very End ************* -#
-
