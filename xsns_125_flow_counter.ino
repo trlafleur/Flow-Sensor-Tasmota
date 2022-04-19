@@ -163,11 +163,10 @@
       7     Excess Flow Threshold Time                    // time in seconds to report excessive flow
       8     Current Send Interval in second's             // how often we send MQTT information when we have a flow 
       9     MQTT Bit Mask, 16 bits                        // use to enable/disable MQTT messages
-      10    Max Flow reset time in seconds                // Reset flow, if no new pulse by this time... <=-----------------------   xxx  trl
-      11    Max Flow Rate                                 // Max flow rate for this sensor
-      12    Debounce 0 = off, 1 = on
-      13    Debounce Low Time in MS
-      14    Debounce High Time in MS
+      10    Max Flow Rate                                 // Max flow rate for this sensor
+      11    Debounce 0 = off, 1 = on
+      12    Debounce Low Time in MS
+      13    Debounce High Time in MS
 
 
   MQTT_send_bit_mask:                    // we use this mask to enable/disable MQTT messages
@@ -279,14 +278,12 @@ set defaults in Settings.ino at line 1231
 //   uint16_t FlowCtr_MQTT_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
 //   uint16_t FlowCtr_current_send_interval =        10;  // in seconds
 //   uint32_t flow_threshold_reset_time =    5 * 60 * 1000; // Excessive flow threshold timeout, in milliseconds (20 Min)  
-//   uint32_t FlowCtr_max_flow_reset_time =  1 * 60 * 1000; // Reset flow if no pulse within this window, in milliseconds
 //   float    FlowCtr_max_flow_rate  =           60.0;    // Sensor Max Flow rate in units of flow...
 //   float    FlowCtr_threshold_max =            20.0;    // Excessive flow threshold in units of flow
 //   float    FlowCtr_rate_factor =               1.0;    // Current Rate Factor
 //   float    FlowCtr_k =                        .153;    // For K-Offset flow sensor (--> CST 1in ELF sensor)
 //   float    FlowCtr_offset =                  1.047;    // Current Offset
 // } MySettings;
-// static_assert(sizeof(MySettings) == 40, "MySettings Size is not 40 bytes");
 
 
 /* ******************************************************** */
@@ -308,8 +305,7 @@ struct FLOWCTR
   uint32_t    SendingRate;               // Current sample rate count
   uint32_t    LastPulseCount;            // use to check for new flow
   uint32_t    CurrentTime;               // Current time 
-  uint32_t    LastPulseTime;             // Last pulse time
-  //uint32_t    CurrentFlowStartTime;      // Start of current flow      
+  uint32_t    LastPulseTime;             // Last pulse time     
   uint32_t    ExcessiveFlowStartTime;    // Time that this flow started...
   float       Saved1hrFlowVolume;        // saved volume for the last 1hr period
   float       Saved24hrFlowVolume;       // saved volume for the last 24hr period
@@ -328,7 +324,6 @@ struct FLOWCTR
 static struct FLOWCTR *FlowCtr = nullptr;
 
 // Forward declarations...
-//void FlowCtrCheckFlowTimeOut(void);
 void FlowCtrCheckExcessiveFlow(void);
 void FlowCtrBoundsCheck(void);
 void FlowCtrFlowEverySecond(void);
@@ -464,9 +459,9 @@ void FlowCtrInit(void)
 
     current_pulse_count =                 0;    // set counts to zero on reboot...
     flow_pulse_period  =                  0;    // set period to zero on reboot...
-    FlowCtr->WeHaveFlow =                false;
-    FlowCtr->WeHaveFlowOverThreshold =   false;
-    FlowCtr->WeHaveExcessFlow =          false;
+    FlowCtr->WeHaveFlow =             false;
+    FlowCtr->WeHaveFlowOverThreshold =false;
+    FlowCtr->WeHaveExcessFlow =       false;
     FlowCtr->LastPulseTime =              0;    // Last pulse time
     FlowCtr->SendingRate =                0;    // Current sample rate count 
     FlowCtr->Current1hrFlowVolume =     0.0;    // current run-rate volume for this 1hr period
@@ -478,7 +473,7 @@ void FlowCtrInit(void)
     FlowCtr->Freq =                       0;
               
 
-    // // lets set global varables to defaults, this is now set in settings.ino and is here just for information
+    // // lets set global varables to defaults, ---> this is now set in settings.ino and is here just for information
     // Settings->FlowCtr_type =                        0;        // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
     // Settings->FlowCtr_units =                       0;        // Current flow units
     // Settings->FlowCtr_debounce_low =                0;        // Current debounce values...
@@ -487,7 +482,6 @@ void FlowCtrInit(void)
     // Settings->FlowCtr_MQTT_bit_mask =          0xffff;        // MQTT Bit Mask, Controls what we send
     // Settings->FlowCtr_current_send_interval =      10;        // in seconds
     // Settings->flow_threshold_reset_time =  20 * 60 * 1000;    // Excessive flow threshold timeout, in miliseconds (20 Min) 
-    // Settings->FlowCtr_max_flow_reset_time = 4 * 60 * 1000;    // Reset flow if no pulse within this window, in miliseconds  <----------------------- TRL
     // Settings->FlowCtr_max_flow_rate  =           60.0;        // Sensor Max Flow rate in units of flow...
     // Settings->FlowCtr_threshold_max =            20.0;        // Excessive flow threshold in units of flow
     // Settings->FlowCtr_rate_factor =               1.0;        // Current Rate Factor
@@ -510,11 +504,11 @@ void FlowCtrInit(void)
 /* ******************************************************** */
 void FlowCtrFlowEverySecond(void)
 {
-  TasmotaGlobal.seriallog_timer = 600;               // DEBUG Tool   <---------- TRL
+  TasmotaGlobal.seriallog_timer = 600;                // DEBUG Tool   <---------- TRL
 
-  FlowCtr->CurrentTime = millis();                   // get current time from system
+  FlowCtr->CurrentTime = millis();                    // get current time from system
   FlowCtr->OneMinute++;
-  FlowCtr->OneHour++;                                // advance our event timers...
+  FlowCtr->OneHour++;                                 // advance our event timers...
   FlowCtr->OneDay++;
   FlowCtr->SendingRate++;
 
@@ -561,10 +555,11 @@ void FlowCtrFlowEverySecond(void)
       }   // end of: if (current_pulse_count > FlowCtr->LastPulseCount)
       else                                                                // no change in pulse count
       {
-        FlowCtr->WeHaveFlow = false;
-        FlowCtr->CurrentFlow = 0.0;                                       // so lets reset counters 
-        FlowCtr->VolumePerFlow = 0.0;                  
-        flow_pulse_period = 0;
+        FlowCtr->WeHaveFlow =   false;
+        FlowCtr->CurrentFlow =    0.0;                                    // so lets reset counters 
+        FlowCtr->VolumePerFlow =  0.0;
+        FlowCtr->Freq =           0.0;                  
+        flow_pulse_period =         0;
       }
     }   // end of: if (FlowCtr->OneMinute >= 60)
 
@@ -832,31 +827,25 @@ bool Xsns125Cmnd(void)
       Settings->FlowCtr_MQTT_bit_mask = (uint16_t) strtol(ArgV(argument, 2), nullptr, 16);
       AddLog(LOG_LEVEL_INFO, PSTR("%s: 0x%04x"), "Case 9, MQTT Bit Mask", Settings->FlowCtr_MQTT_bit_mask);
       break;
-
-    case 10: // Max Flow reset time in second's (convert to milliseconds)                                                // <------------------- trl
-      //if (strtol(ArgV(argument, 2), nullptr, 10) <= 10 ) Settings->FlowCtr_max_flow_reset_time = 1000;
-      //else Settings->FlowCtr_max_flow_reset_time = (1000) * strtol(ArgV(argument, 2), nullptr, 10);
-      //AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Reset Time", Settings->FlowCtr_max_flow_reset_time);
-      break;
       
-    case 11: // Max Flo Rate
+    case 10: // Max Flo Rate
       Settings->FlowCtr_max_flow_rate = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 11, Max Flow Rate", Settings->FlowCtr_max_flow_rate);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 10, Max Flow Rate", Settings->FlowCtr_max_flow_rate);
       break;
 
-    case 12: // Flow Debounce time in MS
+    case 11: // Flow Debounce time in MS
       Settings->FlowCtr_debounce = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 12, Flow Debounce", Settings->FlowCtr_debounce);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 11, Flow Debounce", Settings->FlowCtr_debounce);
       break;
 
-    case 13: // Flow Debounce Low time in MS
+    case 12: // Flow Debounce Low time in MS
       Settings->FlowCtr_debounce_low = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 13, Flow Debounce Low", Settings->FlowCtr_debounce_low);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 12, Flow Debounce Low", Settings->FlowCtr_debounce_low);
       break;
 
-    case 14: // Flow Debounce High time in MS
+    case 13: // Flow Debounce High time in MS
       Settings->FlowCtr_debounce_high = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 14, Flow Debounce High", Settings->FlowCtr_debounce_high);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 13, Flow Debounce High", Settings->FlowCtr_debounce_high);
       break;
     }
   }
@@ -873,7 +862,6 @@ bool Xsns125Cmnd(void)
   char hex_data[8];
   sprintf(hex_data, "%04x", Settings->FlowCtr_MQTT_bit_mask);
   ResponseAppend_P(PSTR(",\"MQTT Bit Mask\":\"0x%s\""), hex_data );
-  //ResponseAppend_P(PSTR(",\"Max Flow Reset Time\":%u"), Settings->FlowCtr_max_flow_reset_time);
   ResponseAppend_P(PSTR(",\"Max Flow Rate\":%7.2f"), Settings->FlowCtr_max_flow_rate);
   ResponseAppend_P(PSTR(",\"Flow Debounce \":%u"), Settings->FlowCtr_debounce);
   ResponseAppend_P(PSTR(",\"Flow Debounce Low \":%u"), Settings->FlowCtr_debounce_low);
