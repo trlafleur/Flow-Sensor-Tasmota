@@ -152,20 +152,17 @@ Default = 1
        Use to enable/disable MQTT messages
        Default = FFFF (all enabled)
        
-10	Max Flow reset time in seconds, Integer
-       Reset flow, if no new pulse by this time...
-       
-11 	Max Flow Rate, float
+10 	Max Flow Rate, float
        Max flow rate for this sensor
        
-12 	Debounce Time, Integer
+11 	Debounce Time, Integer
        0 = off, 1 = on (See Counter sensor for detail information)
        Default = 0
 
-13 	Debounce Low Time, Integer 
+12 	Debounce Low Time, Integer 
        In Milliseconds, Default = 0
 
-14 	Debounce High Time, Integer
+13 	Debounce High Time, Integer
        In Milliseconds, Default = 0
        
 ----------------------------------
