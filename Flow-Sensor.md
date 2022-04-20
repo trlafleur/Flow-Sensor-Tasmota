@@ -32,7 +32,7 @@ Gallons per minute = (Frequency + offset) / K		Badger
 In the schematic is the interface circuit that I use to interface the sensor to the ESP32.
 The comparator with some hysteresis is used to sense the pulse change and is cleaned up by the two TTL inverter. R4 and C3 provide the 1st level of debouncing of the pulse from the sensor.  Another option is to use an optocoupler. In the photo, is the ESP32 mounted in a waterproof enclosure on a motherboard that provided power to the processor.
 
-The k-Offset sensor requires power to operate, this is done via a bias resistor giving proper operating current to the device. Such devices require about 20 to 100ma to operate at some minimal voltage. They produce a 5ms pulse at a rate from 1 to 200Hz.
+The k-Offset sensor requires power to operate, this is done via a bias resistor giving proper operating current to the device. Such devices require about 5 to 100ma to operate at some minimal voltage. They produce a 5ms pulse at a rate from 1 to 200Hz.
 
 Pulse per unit of flow sensors, generally uses a small reed switch to generate a pulse, some use a hall-affect sensor that requires power.  
 
