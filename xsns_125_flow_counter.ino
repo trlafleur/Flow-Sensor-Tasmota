@@ -319,7 +319,7 @@ struct FLOWCTR
   char        Current_Volume_Units[8];
   bool        WeHaveFlow;                 // true if we have started a new flow
   bool        WeHaveFlowOverThreshold;    // true if current flow exceed threshold
-  bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded flow_threshold_reset_time
+  bool        WeHaveExcessFlow;           // true if we have exceed threshold and we have exceeded Flow_threshold_reset_time
 } ;
 static struct FLOWCTR *FlowCtr = nullptr;
 
@@ -481,7 +481,7 @@ void FlowCtrInit(void)
     // Settings->FlowCtr_debounce =                    0;
     // Settings->FlowCtr_MQTT_bit_mask =          0xffff;        // MQTT Bit Mask, Controls what we send
     // Settings->FlowCtr_current_send_interval =      10;        // in seconds
-    // Settings->flow_threshold_reset_time =  20 * 60 * 1000;    // Excessive flow threshold timeout, in miliseconds (20 Min) 
+    // Settings->Flow_threshold_reset_time =  20 * 60 * 1000;    // Excessive flow threshold timeout, in miliseconds (20 Min) 
     // Settings->FlowCtr_max_flow_rate  =           60.0;        // Sensor Max Flow rate in units of flow...
     // Settings->FlowCtr_threshold_max =            20.0;        // Excessive flow threshold in units of flow
     // Settings->FlowCtr_rate_factor =               1.0;        // Current Rate Factor
@@ -647,12 +647,12 @@ void FlowCtrBoundsCheck(void)                 // Lets do a bounds check
 // we may have a stuck valve or ?? If Settings->flow_threshold_reset_time = 0, we will skip this 
 void FlowCtrCheckExcessiveFlow(void)
 {
-  if ( Settings->flow_threshold_reset_time > 0)                      // skip Excessive Flow test if zero
+  if ( Settings->Flow_threshold_reset_time > 0)                      // skip Excessive Flow test if zero
   {
-    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + Settings->flow_threshold_reset_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
+    if ( (FlowCtr->CurrentTime >= (FlowCtr->ExcessiveFlowStartTime + Settings->Flow_threshold_reset_time) ) && (FlowCtr->WeHaveFlowOverThreshold == true) )
     {
       FlowCtr->WeHaveExcessFlow = true;
-      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, Settings->flow_threshold_reset_time);
+      AddLog( LOG_LEVEL_INFO, PSTR("%s: %7.2f, %u"), " We have Excess Flow over time !",  FlowCtr->CurrentFlow, Settings->Flow_threshold_reset_time);
     } 
     else
     {
@@ -813,8 +813,8 @@ bool Xsns125Cmnd(void)
       break;
 
     case 7:   // Flow Threshold Time in second's (convert to milliseconds)
-      Settings->flow_threshold_reset_time = (1000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", Settings->flow_threshold_reset_time);
+      Settings->Flow_threshold_reset_time = (1000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
+      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "Case 7, Max Flow Time", Settings->Flow_threshold_reset_time);
       break;
 
     case 8:  // Current Sample Interval in second's, lower limit to 10 seconds
@@ -857,7 +857,7 @@ bool Xsns125Cmnd(void)
   ResponseAppend_P(PSTR(",\"Flow Offset\":%7.2f"), Settings->FlowCtr_offset);
   ResponseAppend_P(PSTR(",\"Flow Units\":%d"), Settings->FlowCtr_units);
   ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%7.2f"), Settings->FlowCtr_threshold_max);
-  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), Settings->flow_threshold_reset_time);
+  ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"), Settings->Flow_threshold_reset_time);
   ResponseAppend_P(PSTR(",\"Flow Sample Interval\":%u"), Settings->FlowCtr_current_send_interval);
   char hex_data[8];
   sprintf(hex_data, "%04x", Settings->FlowCtr_MQTT_bit_mask);
