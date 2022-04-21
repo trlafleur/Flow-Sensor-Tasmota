@@ -144,7 +144,7 @@ Command Format: Sensor125 1,2
        
 8 	Minimal Send Interval in second's, Integer
        How often we send information
-       Default = 10 seconds
+       Default = 60 seconds
        
 9 	MQTT Bit Mask, 16 bits hex
        Use to enable/disable MQTT messages
