@@ -114,8 +114,8 @@ Command Format: Sensor125 1,2
 
 1	Flow Sensor Type:
        0 	Pulse per unit (GPM....)  Default
-       1	K-Offset flowrate = (freq + offset)  K --> freq = (PPM / K)
-       2 	K-Offset flowrate = (freq + offset) / K --> freq = (PPM  K)
+       1	K-Offset flowrate = (freq + offset) * K --> freq = (PPM / K)
+       2 	K-Offset flowrate = (freq + offset) / K --> freq = (PPM * K)
 
 2 	Flow rate factor:
 Unit per pulse from flow meter examples, float
