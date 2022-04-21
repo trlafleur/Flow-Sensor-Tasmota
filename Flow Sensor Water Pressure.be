@@ -28,7 +28,7 @@
     We have measured the ATD in our ESP32 and found these settings to work for us... 
     Checking multiple devices, we found that they were sometimes off by 10% or more!
     
-    AdcParam1 ('6,138,2515,0,100')    # We are using the scalling function built in to Tasmota
+    AdcParam1 6,138,2515,0,100    # We are using the scalling function built in to Tasmota
      
         
         ESP32 A TO D Reference:
