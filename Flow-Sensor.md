@@ -118,8 +118,8 @@ Command Format: Sensor125 1,2
        2 	K-Offset flowrate = (freq + offset) / K --> freq = (PPM * K)
 
 2 	Flow rate factor:
-Unit per pulse from flow meter examples, float
-Default = 1
+       Unit per pulse from flow meter examples, float
+       Default = 1
 
 3 	K 	
        K value for device, float
@@ -165,7 +165,7 @@ Default = 1
        
 ----------------------------------
 MQTT send bit mask: We use this to enable/disable MQTT messages
-Default = FFFF
+Default = 0xFFFF
 Bit:
 0 	FlowCount 
 1 	Flow
