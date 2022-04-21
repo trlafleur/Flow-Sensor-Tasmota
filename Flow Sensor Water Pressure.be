@@ -1,34 +1,34 @@
 
 
 #- This is using a pressure sensor to check the current water pressure in our system.
-   The sensor measures 0-100PSI, using the Analog to Digital Converter
-   in the ESP32 on a pin (A4), The ATD is 12bits, 0-4095 from 0v to 3.3v.
-   We will use it in the 0 to 2.5V range as specified in the ESP32 reference document.
-   Tasmota setting for the ATD are 12bits with ADC_ATTEN_DB set to 11.
-   This ATD converter is a terribly inaccuracy, I do not recommend it for anything serious.
-   It's also not very linear at the bottom or top of its range and has
-   a large offset, for us, this is not a real issue as the sensor has a voltage 
+Â  Â The sensor measures 0-100PSI, using the Analog to Digital Converter
+Â  Â in the ESP32 on a pin (A4), The ATD is 12bits, 0-4095 from 0v to 3.3v.
+Â  Â We will use it in the 0 to 2.5V range as specified in the ESP32 reference document.
+Â  Â Tasmota setting for the ATD are 12bits with ADC_ATTEN_DB set to 11.
+Â  Â This ATD converter is a terribly inaccuracy, I do not recommend it for anything serious.
+Â  Â It's also not very linear at the bottom or top of its range and has
+Â Â  a large offset, for us, this is not a real issue as the sensor has a voltage 
    range of 0.5v for 0 PSI and 100 PSI at 4.5V and we will offset the reading as needed.
     
-   We are interested in a change of water pressure, and the accuracy is not real important. 
- 
-   We scalled the input voltage by 10k/10k resistors with a .1uf to gnd,
-   this give us a scalling factor of .50 so:
-        5v      = 2.500v
-        4.5V    = 2.250v
-        2.5v    = 1.250v
-        1.25v   = 0.625v
-        0.5V    = 0.250v
+Â Â  We are interested in a change of water pressure, and the accuracy is not real important. 
+Â 
+Â  Â We scalled the input voltage by 10k/10k resistors with a .1uf to gnd,
+Â  Â this give us a scalling factor of .50 so:
+Â  Â  Â  Â  5v Â  Â  Â = 2.500v
+Â  Â  Â  Â  4.5V Â  Â = 2.250v
+Â  Â  Â  Â  2.5v Â  Â = 1.250v
+Â  Â  Â  Â  1.25v Â  = 0.625v
+Â  Â  Â  Â  0.5V Â  Â = 0.250v
 
-   Sensor range is : 0.5V  4.5V = a 4v range as a linear voltage:
-    0   psi = 0.5V * 0.5 = 0.25v = 138     after scalling
-    50  psi = 2.5V * 0.5 = 1.25v = 1328
-    100 psi = 4.5V * 0.5 = 2.25v = 2515
+Â  Â Sensor range is : 0.5V  4.5V = a 4v range as a linear voltage:
+Â  Â  0 Â  psi = 0.5V * 0.5 = 0.25v = 138 Â  Â  after scalling
+Â  Â  50 Â psi = 2.5V * 0.5 = 1.25v = 1328
+Â  Â  100 psi = 4.5V * 0.5 = 2.25v = 2515
     
     We have measured the ATD in our ESP32 and found these settings to work for us... 
     Checking multiple devices, we found that they were sometimes off by 10% or more!
     
-    AdcParam1 6,138,2515,0,100')    # We are using the scalling function built in to Tasmota
+Â  Â  AdcParam1 ('6,138,2515,0,100') Â  Â # We are using the scalling function built in to Tasmota
      
         
         ESP32 A TO D Reference:
