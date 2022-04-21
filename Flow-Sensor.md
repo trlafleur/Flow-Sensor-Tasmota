@@ -14,7 +14,7 @@ specified: a K factor and Offset.
 During calibration the manufacturer measures the pulse rate outputs for a number of precise flow rates. These are plotted, but since the turbine has some friction, the graph will not be linear especially at the low end and a linear regression is done to get a best fit straight line.
 The K factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved. Offset represents the small amount of liquid flow required to start the turbine moving. You can assume that if any pulses are arriving at all, at least the offset volume of liquid is moving.
 
-The sensor is essentially a 6 to 20 Ohm switch with a less than 1ma leakage current . With no flow running (the impeller not turning), the sensor will appear to the controller input as a small current load . When the impeller is turning, it appears a quick series of 5 ms short circuits . 
+The sensor is essentially a 6 to 20 Ohm switch with a less than 1ma leakage current . With no flow running (the impeller not turning), the sensor will appear to the controller input as a small current load . When the impeller is turning, it appears as quick series of 5 ms short circuits . 
 
 There does not seem to be a standard for how K factor flow meters are presented.
 Sensors output a pulse stream at a frequency proportional to the flow volume as calibrated.
