@@ -27,10 +27,10 @@
  *  3-Apr-2022  1.1   TRL - refactoring of code base
  *  5-Apr-2022  1.1a  TRL - added check for sufficient flow change
  *  7-Apr-2022  1.2   TRL - Local Data-struct was change to dynamic
- *  70Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code
+ *  7-Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code
  *
  *  Notes:  1)  Tested with TASMOTA  11.0.0.3
- *          2)  ESP32
+ *          2)  ESP32, ESP32S3
  *
  *
  *    TODO:
@@ -193,7 +193,7 @@
 */
 
 /*
-Changes made to Tasmota base code...
+Changes made to Tasmota base code... See integration notes...
 
 tasmota/tasmota_template.h 
 line 186
@@ -262,9 +262,8 @@ set defaults in Settings.ino at line 1231
 #define D_UNIT_HZ "Hz"
 
 /* ******************************************************** */
-// this is here to avoid making to many changes to base Tasmota code...
 // these settings are save between re-boots
-//    --->   Need to do a global rename of "Settings->" to "Settings->" when we move this structure to Tasmota base code <---------- TRL
+//    "Settings->"  this structure is now renamed and is in Tasmota base code settings.h  <---------- TRL
 
 // xsns125 Flow Counter varables in settings.h
 
@@ -695,21 +694,21 @@ void FlowCtrShow(bool json)
         {
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowPulseCount\":%lu,"),   (header) ? "," : "", current_pulse_count);
         }
-        else                                            // if we have Type 1 or 2 flow sensor.
+        else                                             // if we have Type 1 or 2 flow sensor.
         {
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 6) ResponseAppend_P(PSTR("%s\"K\":%9.4f,"),         (header) ? "," : "", Settings->FlowCtr_k);
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 7) ResponseAppend_P(PSTR("%s\"Offset\":%9.4f,"),    (header) ? "," : "", Settings->FlowCtr_offset);
           if bitRead (Settings->FlowCtr_MQTT_bit_mask, 2) ResponseAppend_P(PSTR("%s\"FlowPeriod\":%9.4f,"),  (header) ? "," : "", (float) flow_pulse_period / 1000000.0);
         }
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1) ResponseAppend_P(PSTR("%s\"Rate\":%9.4f,"),        (header) ? "," : "", FlowCtr->CurrentFlow);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 5) ResponseAppend_P(PSTR("%s\"RateFactor\":%9.4f,"),(header) ? "," : "", Settings->FlowCtr_rate_factor); 
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 1)  ResponseAppend_P(PSTR("%s\"Rate\":%9.4f,"),        (header) ? "," : "", FlowCtr->CurrentFlow);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 5)  ResponseAppend_P(PSTR("%s\"RateFactor\":%9.4f,"),(header) ? "," : "", Settings->FlowCtr_rate_factor); 
         if bitRead (Settings->FlowCtr_MQTT_bit_mask, 14) ResponseAppend_P(PSTR("\"VolumeThisFlow\":%9.2f,"),  (header) ? "," : "", FlowCtr->VolumePerFlow);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 3) ResponseAppend_P(PSTR("%s\"1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Saved1hrFlowVolume);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 4) ResponseAppend_P(PSTR("%s\"24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Saved24hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 3)  ResponseAppend_P(PSTR("%s\"1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Saved1hrFlowVolume);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 4)  ResponseAppend_P(PSTR("%s\"24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Saved24hrFlowVolume);
         if bitRead (Settings->FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("%s\"Current1HrVolume\":%9.2f,"),   (header) ? "," : "", FlowCtr->Current1hrFlowVolume);
         if bitRead (Settings->FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("%s\"Current24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr->Current24hrFlowVolume);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 8) ResponseAppend_P(PSTR("%s\"FlowUnits\":\"%s\","),    (header) ? "," : "", FlowCtr->Current_Units);
-        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 9) ResponseAppend_P(PSTR("%s\"VolumeUnits\":\"%s\","),  (header) ? "," : "", FlowCtr->Current_Volume_Units);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 8)  ResponseAppend_P(PSTR("%s\"FlowUnits\":\"%s\","),    (header) ? "," : "", FlowCtr->Current_Units);
+        if bitRead (Settings->FlowCtr_MQTT_bit_mask, 9)  ResponseAppend_P(PSTR("%s\"VolumeUnits\":\"%s\","),  (header) ? "," : "", FlowCtr->Current_Volume_Units);
         if bitRead (Settings->FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr->WeHaveExcessFlow) ? "true" : "false");    
         header = true;
 
@@ -717,7 +716,6 @@ void FlowCtrShow(bool json)
 #ifdef USE_DOMOTICZ    
 #endif // USE_DOMOTICZ
 
-        if ((0 == TasmotaGlobal.tele_period) && (Settings->flag3.counter_reset_on_tele))
         {
           AddLog( LOG_LEVEL_INFO, PSTR("%s: "), " Domoticz not implemented !");
         }
