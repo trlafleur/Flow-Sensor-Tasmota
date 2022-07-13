@@ -103,7 +103,7 @@
  *     1 Gal/per/min        period      Freq in Hz
  *  ---------------------------------------------------
  *  1   Pulse = 1   gal     60  sec    .01667 Hz
- *  60  Pulse = 60  gal     1   sec    1 Hz
+ *  60  Pulse = 60  gal     1   sec     1 Hz
  *  30  Pulse = 30  gal     2   sec    .5 Hz
  *  10  Pulse = 10  gal     6   sec    .16667 Hz
  *  5   Pulse = 5   gal     12  sec    .08333 Hz
