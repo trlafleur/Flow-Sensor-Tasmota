@@ -31,6 +31,8 @@
  *   1-Aug-2022  1.3   TRL - Moved to 12.1.0.2, Moved MySettings back to local space, not in settings.h for now (removed, See 1.4)
  *  19-Dec-2022  1.3a  TRL - Moved to 12.3.1.1
  *  16-Jan-2023  1.4   TRL - added save setings to flash file system
+ *  17-Jan-2023  1.4a  TRL - change some variables names, option for defaults settings to be in --> user_config_override.h
+ *
  *
  *  Notes:  1)  Tested with TASMOTA  12.3.1.1
  *          2)  ESP32, ESP32S3
@@ -210,20 +212,23 @@
 /* ************************************************************************************** */
 // -------------------->  Flow Sensor Defaults (X125)  <-------------------------------
 
- #define xFlowCtr_type                          1         // Current type of flow sensor, 0   flow per unit,  1,2   K-Offset
+// define here or in -->  user_config_override.h
+ 
+/*
+ #define xFlowCtr_type                          1         // Current type of flow sensor, 0 = flow per unit,  1,2 =  K-Offset
  #define xFlowCtr_units                         0         // Current flow units
  #define xFlowCtr_debounce_low                  0         // Current debounce values...
  #define xFlowCtr_debounce_high                 0 
  #define xFlowCtr_debounce                      0 
- #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT Bit Mask, Controls what we send
+ #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT Bit Mask, Controls what we send via MQTT
  #define xFlowCtr_current_send_interval        10         // in seconds
- #define xFlow_threshold_reset_time     (5 * 60 *1000)    // Excessive flow threshold timeout, in miliseconds (5 Min)  
+ #define xFlow_threshold_reset_time     (20 * 60 * 1000)  // Excessive flow threshold timeout, in miliseconds (20 Min)  
  #define xFlowCtr_max_flow_rate              60.0f        // Sensor Max Flow rate in units of flow...
  #define xFlowCtr_threshold_max              20.0f        // Excessive flow threshold in units of flow
  #define xFlowCtr_rate_factor                 1.0f        // Current Rate Factor
  #define xFlowCtr_k                          .153f        // For K-Offset flow sensor (--> CST 1in ELF sensor)
  #define xFlowCtr_offset                    1.047f        // Current Offset
-
+*/
 
 /* ************************************************************************************** 
 Changes made to Tasmota base code... 
@@ -297,15 +302,16 @@ at line 921
 
 /* ******************************************************** */
 // Format  1.3a = 0x01 03 01, 1.4 0x01 04 00
-const uint32_t MyFlow_VERSION = 0x010400;       // Latest driver file settings version)
+const uint32_t MyFlow_Settings_VERSION = 0x010401;       // Latest driver file settings version)
+const char Flow_SW_Version[8] = "1.4a";
 
 // this is the current settings values from filesystem (44 bytes)
 struct MYSETTINGS
 {
   uint32_t crc32;                                                               // To detect file changes
-  uint32_t version;                                                             // To detect driver function changes
-  uint8_t  FlowCtr_type =                   xFlowCtr_type;                      // Current type of flow sensor, 0 = flow per unit,  1, 2 = K-Offset  // uint8_t <------------- TRL
-  uint8_t  FlowCtr_units =                  xFlowCtr_units;                     // Current flow units     // uint8_t
+  uint32_t version;                                                             // To detect settings file changes
+  uint8_t  FlowCtr_type =                   xFlowCtr_type;                      // Current type of flow sensor, 0 = flow per unit,  1, 2 = K-Offset
+  uint8_t  FlowCtr_units =                  xFlowCtr_units;                     // Current flow units
   uint16_t FlowCtr_debounce_low =           xFlowCtr_debounce_low;              // Current debounce values...
   uint16_t FlowCtr_debounce_high =          xFlowCtr_debounce_high;
   uint16_t FlowCtr_debounce =               xFlowCtr_debounce;
@@ -324,9 +330,9 @@ struct MYSETTINGS
 // Global structure's containing non-saved variables
 
 // Our Local global volatile variables...
-volatile DRAM_ATTR uint32_t flow_pulse_period;     // in microseconds
-volatile DRAM_ATTR uint32_t current_pulse_count;
-volatile DRAM_ATTR bool     FlowLedState  = false; // LED toggles on every pulse 
+volatile DRAM_ATTR uint32_t flow_pulse_period;        // in microseconds
+volatile DRAM_ATTR uint32_t flow_current_pulse_count;
+volatile DRAM_ATTR bool     flow_led_state  = false;  // LED toggles on every pulse 
 
 struct FLOWCTR
 {
@@ -384,8 +390,8 @@ void FlowSettingsSave(void);
 /* ******************************************************** */
 void IRAM_ATTR FlowCtrIsr(void)
 {
-  volatile uint32_t CurrentTimeISR = micros();
-  volatile uint32_t debounce_time;
+  volatile uint32_t flow_current_time_ISR = micros();
+  volatile uint32_t flow_debounce_time;
 
   if (FlowCtr.pin_state)
   {
@@ -395,21 +401,21 @@ void IRAM_ATTR FlowCtrIsr(void)
       // new pin state to be ignored because debounce Time was not met during last IRQ
       return;
     }
-    debounce_time = CurrentTimeISR - FlowCtr.timer_low_high;
+    flow_debounce_time = flow_current_time_ISR - FlowCtr.timer_low_high;
     if bitRead (FlowCtr.pin_state, 0)
     {
       // last valid pin state was high, current pin state is low
-      if (debounce_time <= MySettings.FlowCtr_debounce_high * 1000)
+      if (flow_debounce_time <= MySettings.FlowCtr_debounce_high * 1000)
         return;
     }
     else
     {
       // last valid pin state was low, current pin state is high
-      if (debounce_time <= MySettings.FlowCtr_debounce_low * 1000)
+      if (flow_debounce_time <= MySettings.FlowCtr_debounce_low * 1000)
         return;
     }
     // passed debounce check, save pin state and timing
-    FlowCtr.timer_low_high = CurrentTimeISR;
+    FlowCtr.timer_low_high = flow_current_time_ISR;
     FlowCtr.pin_state ^= 1;
     // do not count on rising edge
     if bitRead (FlowCtr.pin_state, 0)
@@ -418,25 +424,25 @@ void IRAM_ATTR FlowCtrIsr(void)
       }
   }   // end of (FlowCtr.pin_state)
 
-  debounce_time = CurrentTimeISR - FlowCtr.timer;
-  if (debounce_time > (MySettings.FlowCtr_debounce * 1000))
+  flow_debounce_time = flow_current_time_ISR - FlowCtr.timer;
+  if (flow_debounce_time > (MySettings.FlowCtr_debounce * 1000))
   {
-    FlowCtr.timer = CurrentTimeISR;
-    flow_pulse_period = debounce_time;          // pulse period
-    current_pulse_count++;                      // pulse count
+    FlowCtr.timer = flow_current_time_ISR;
+    flow_pulse_period = flow_debounce_time;          // pulse period
+    flow_current_pulse_count++;                 // pulse count
   }
 
   // Optional external LED to show each pulse
  if (PinUsed(GPIO_FLOW_LED)) 
   {   
-     if (FlowLedState) 
+     if (flow_led_state) 
       {
-        FlowLedState = false;
+        flow_led_state = false;
         digitalWrite(Pin(GPIO_FLOW_LED), 0);
       }
     else
       {
-        FlowLedState = true;
+        flow_led_state = true;
         digitalWrite(Pin(GPIO_FLOW_LED), 1);
       }
   }
@@ -457,7 +463,7 @@ void FlowSettingsDefault(void)
   AddLog(LOG_LEVEL_INFO, PSTR("X125-flow0: Setting Defaults"));
 
   MySettings.crc32 =                          0;                                  // To detect file corruption 
-  MySettings.version =                        MyFlow_VERSION;                     // Settings versions                                                  // To detect driver function changes
+  MySettings.version =                        MyFlow_Settings_VERSION;            // Settings versions                                                  // To detect driver function changes
   MySettings.FlowCtr_type =                   xFlowCtr_type;                      // Current type of flow sensor, 0 = flow per unit,  1, 2 = K-Offset  // uint8_t <------------- TRL
   MySettings.FlowCtr_units =                  xFlowCtr_units;                     // Current flow units     // uint8_t
   MySettings.FlowCtr_debounce_low =           xFlowCtr_debounce_low;              // Current debounce values...
@@ -477,10 +483,10 @@ void FlowSettingsDefault(void)
 /* ******************************************************** */
 void FlowSettingsDelta(void) 
 {
-  if (MySettings.version != MyFlow_VERSION)            // Fix version dependent changes
+  if (MySettings.version != MyFlow_Settings_VERSION)            // Fix version dependent changes
   {     
     // Set current version and save settings file
-    MySettings.version = MyFlow_VERSION;
+    MySettings.version = MyFlow_Settings_VERSION;
     FlowSettingsSave();
   }
 }
@@ -604,7 +610,7 @@ void FlowCtrInit(void)
      }
 
     // pre set local working variables
-    current_pulse_count =                      0;    // set counts to zero on reboot...
+    flow_current_pulse_count =                 0;    // set counts to zero on reboot...
     flow_pulse_period  =                       0;    // set period to zero on reboot...
     FlowCtr.ExcessiveFlowStartTime =    micros();    // get current time...
     FlowCtr.WeHaveFlow =                   false;    //
@@ -612,20 +618,20 @@ void FlowCtrInit(void)
     FlowCtr.WeHaveExcessFlow =             false;    //
     FlowCtr.LastPulseTime =                    0;    // Last pulse time
     FlowCtr.SendingRate =                      0;    // Current sample rate count 
-    FlowCtr.Current1hrFlowVolume =           0.0f;   // current run-rate volume for this 1hr period
-    FlowCtr.Current24hrFlowVolume =          0.0f;   // current run-rate volume for this 24hr period
-    FlowCtr.VolumePerFlow  =                 0.0f;   // Volume for current flow
+    FlowCtr.Current1hrFlowVolume =          0.0f;    // current run-rate volume for this 1hr period
+    FlowCtr.Current24hrFlowVolume =         0.0f;    // current run-rate volume for this 24hr period
+    FlowCtr.VolumePerFlow  =                0.0f;    // Volume for current flow
     FlowCtr.OneHour =                          0;    // event timers....
     FlowCtr.OneDay =                           0;    //
     FlowCtr.OneMinute =                        0;    //
-    FlowCtr.Freq =                           0.0f;   // Current frequency of pulses
+    FlowCtr.Freq =                          0.0f;    // Current frequency of pulses
 
   }   // end of: if (PinUsed(GPIO_FLOW))
 
   // This is an optional LED indicator of flow pulse's from the sensor
   if (PinUsed(GPIO_FLOW_LED)) 
   {
-       FlowLedState  =  false;
+       flow_led_state  =  false;
        pinMode(Pin(GPIO_FLOW_LED), OUTPUT);           // set pin to output
        digitalWrite(Pin(GPIO_FLOW_LED), 0);           // turn off led for now
   }
@@ -656,7 +662,7 @@ void FlowCtrFlowEverySecond(void)
     {
       FlowCtr.OneMinute = 0;
       FlowCtr.OldFlowRate = FlowCtr.CurrentFlow;
-      if (current_pulse_count > FlowCtr.LastPulseCount)                  // check to see if we have a new flow pulse
+      if (flow_current_pulse_count > FlowCtr.LastPulseCount)                  // check to see if we have a new flow pulse
       {                                                                  // yes, we have a flow...
         FlowCtr.Freq = (1.0 / ((float) flow_pulse_period / 1000000.0));  // flow_pulse_period is in microseconds
         if (FlowCtr.Freq < 0.0f) FlowCtr.Freq = 0.0f;
@@ -666,7 +672,7 @@ void FlowCtrFlowEverySecond(void)
         {
           default:
            case 0:   // we have Type 0 flow sensor, units per minute (ie: GPM..)
-              FlowCtr.CurrentFlow = ((current_pulse_count - FlowCtr.LastPulseCount) * MySettings.FlowCtr_rate_factor); 
+              FlowCtr.CurrentFlow = ((flow_current_pulse_count - FlowCtr.LastPulseCount) * MySettings.FlowCtr_rate_factor); 
               AddLog( LOG_LEVEL_DEBUG, PSTR("%s:, %9.2f,  %u"), " flow rate, period !",  FlowCtr.CurrentFlow, flow_pulse_period);
            break;
 
@@ -687,9 +693,9 @@ void FlowCtrFlowEverySecond(void)
         FlowCtr.VolumePerFlow         += FlowCtr.CurrentFlow ;
 
         FlowCtr.WeHaveFlow = true;
-        FlowCtr.LastPulseCount = current_pulse_count;                    // save current pulse count
+        FlowCtr.LastPulseCount = flow_current_pulse_count;                    // save current pulse count
 
-      }   // end of: if (current_pulse_count > FlowCtr.LastPulseCount)
+      }   // end of: if (flow_current_pulse_count > FlowCtr.LastPulseCount)
       else                                                                // no change in pulse count
       {
         FlowCtr.WeHaveFlow =   false;
@@ -732,7 +738,7 @@ void FlowCtrFlowEverySecond(void)
       Response_P(PSTR("{\"FLOW\":{"));
       if (MySettings.FlowCtr_type == 0)
       {
-        if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowPulseCount\":%lu,"), current_pulse_count );
+        if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 0)  ResponseAppend_P(PSTR("\"FlowPulseCount\":%lu,"), flow_current_pulse_count );
       }
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 1)  ResponseAppend_P(PSTR("\"Rate\":%9.2f,"), (float)      FlowCtr.CurrentFlow);
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 10) ResponseAppend_P(PSTR("\"Current1HrVolume\":%9.2f,"),  FlowCtr.Current1hrFlowVolume);
@@ -830,7 +836,7 @@ void FlowCtrShow(bool json)
 
         if (MySettings.FlowCtr_type == 0)                  // if we have Type 0 flow sensor.
         {
-          if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowPulseCount\":%lu,"), (header) ? "," : "", current_pulse_count);
+          if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 0) ResponseAppend_P(PSTR("%s\"FlowPulseCount\":%lu,"), (header) ? "," : "", flow_current_pulse_count);
         }
         else                                             // if we have Type 1 or 2 flow sensor.
         {
@@ -847,6 +853,7 @@ void FlowCtrShow(bool json)
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 11) ResponseAppend_P(PSTR("%s\"Current24HrVolume\":%9.2f,"),  (header) ? "," : "", FlowCtr.Current24hrFlowVolume);
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 8)  ResponseAppend_P(PSTR("%s\"FlowUnits\":\"%s\","),    (header) ? "," : "", FlowCtr.Current_Units);
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 9)  ResponseAppend_P(PSTR("%s\"VolumeUnits\":\"%s\","),  (header) ? "," : "", FlowCtr.Current_Volume_Units);
+        if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 15) ResponseAppend_P(PSTR("%s\"SW-Version\":\"%s\","),  (header) ? "," : "", Flow_SW_Version);
         if bitRead (MySettings.FlowCtr_MQTT_bit_mask, 12) ResponseAppend_P(PSTR("\"ExcessFlow\":%s"), (FlowCtr.WeHaveExcessFlow) ? "true" : "false");    
         header = true;
 
@@ -865,7 +872,7 @@ void FlowCtrShow(bool json)
         WSContentSend_PD(PSTR("{s}" D_FLOW_RATE "{m}%9.2f %s{e}"), (FlowCtr.CurrentFlow), FlowCtr.Current_Units);
         if (MySettings.FlowCtr_type == 0)      // Check for type 0 sensor
         {
-          WSContentSend_PD(PSTR("{s}" D_FLOW_COUNT "{m}%lu{e}"), current_pulse_count);
+          WSContentSend_PD(PSTR("{s}" D_FLOW_COUNT "{m}%lu{e}"), flow_current_pulse_count);
         }
         else                                    // If we have Type 1 or 2 flow sensor, then we will send K & Offset                
         {
