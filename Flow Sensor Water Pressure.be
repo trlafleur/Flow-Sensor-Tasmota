@@ -53,7 +53,7 @@
     17-Apr-2022  1.0  TRL - 1st release, water pressure
    
     
-    Notes:  1)  Tested with 11.0.3(tasmota)
+    Notes:  1)  Tested with 12.3.1.1(tasmota)
     
     
     ToDo:   1)
