@@ -5,15 +5,15 @@
    in the ESP32 on a pin (A4), The ATD is 12bits, 0-4095 from 0v to 3.3v.
    We will use it in the 0 to 2.5V range as specified in the ESP32 reference document.
    Tasmota setting for the ATD are 12bits with ADC_ATTEN_DB set to 11.
-   This ATD converter is a terribly inaccuracy, I do not recommend it for anything serious.
+   This ATD converter is terribly inaccurate, I do not recommend it for anything serious.
    It's also not very linear at the bottom or top of its range and has
-   a large offset, for us, this is not a real issue as the sensor has a voltage 
+   a large offset; For us, this is not a real issue as the sensor has a voltage 
    range of 0.5v for 0 PSI and 100 PSI at 4.5V and we will offset the reading as needed.
     
    We are interested in a change of water pressure, and the accuracy is not real important. 
  
-   We scalled the input voltage by 10k/10k resistors with a .1uf to gnd,
-   this give us a scalling factor of .50 so:
+   We scaled the input voltage by 10k/10k resistors with a .1uf to gnd,
+   this give us a scaling factor of .50 so:
         5v      = 2.500v
         4.5V    = 2.250v
         2.5v    = 1.250v
@@ -28,7 +28,7 @@
     We have measured the ATD in our ESP32 and found these settings to work for us... 
     Checking multiple devices, we found that they were sometimes off by 10% or more!
     
-    AdcParam1 6,138,2515,0,100    # We are using the scalling function built in to Tasmota
+    AdcParam1 6,138,2515,0,100    # We are using the scaling function built in to Tasmota
      
         
         ESP32 A TO D Reference:
@@ -53,7 +53,7 @@
     17-Apr-2022  1.0  TRL - 1st release, water pressure
    
     
-    Notes:  1)  Tested with 11.0.3(tasmota)
+    Notes:  1)  Tested with 12.3.1.1(tasmota)
     
     
     ToDo:   1)
