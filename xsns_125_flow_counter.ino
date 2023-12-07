@@ -275,7 +275,7 @@ set defaults in Settings.ino at line 1231
 //   uint16_t FlowCtr_debounce_high =               0;
 //   uint16_t FlowCtr_debounce =                    0;
 //   uint16_t FlowCtr_MQTT_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
-//   uint16_t FlowCtr_current_send_interval =        10;  // in seconds
+//   uint16_t FlowCtr_current_send_interval =      10;    // in seconds
 //   uint32_t flow_threshold_reset_time =    5 * 60 * 1000; // Excessive flow threshold timeout, in milliseconds (20 Min)  
 //   float    FlowCtr_max_flow_rate  =           60.0;    // Sensor Max Flow rate in units of flow...
 //   float    FlowCtr_threshold_max =            20.0;    // Excessive flow threshold in units of flow
