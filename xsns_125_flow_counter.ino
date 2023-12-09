@@ -139,7 +139,7 @@
  *    GPIO22  SCL                   // not use here
  *    GPIO23  SDA                   // not use here
  *    GPIO32  Flow LED
- *    GPIO36  ADC-1 for pressure sensor (in berry code)
+ *    GPIO36  ADC-1 for pressure sensor (need berry code)
  * 
  * 
  * 
@@ -206,13 +206,13 @@
         12      Excess flow flag
         13      VolumePerFlow
         14
-        15      Message (Not Used Yet)
+        15      Message's
 */
 
 /* ************************************************************************************** */
 // -------------------->  Flow Sensor Defaults (X125)  <-------------------------------
 
-// define here or in -->  user_config_override.h
+// define here or in --> user_config_override.h
  
 /*
  #define xFlowCtr_type                          1         // Current type of flow sensor, 0 = flow per unit,  1,2 =  K-Offset
@@ -221,7 +221,7 @@
  #define xFlowCtr_debounce_high                 0 
  #define xFlowCtr_debounce                      0 
  #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT Bit Mask, Controls what we send via MQTT
- #define xFlowCtr_current_send_interval        10         // in seconds
+ #define xFlowCtr_current_send_interval        10         // In second's
  #define xFlow_threshold_reset_time     (20 * 60 * 1000)  // Excessive flow threshold timeout, in miliseconds (20 Min)  
  #define xFlowCtr_max_flow_rate              60.0f        // Sensor Max Flow rate in units of flow...
  #define xFlowCtr_threshold_max              20.0f        // Excessive flow threshold in units of flow
@@ -241,7 +241,7 @@ line 208
 GPIO_FLOW, GPIO_FLOW_NP, GPIO_FLOW_LED,        // Flow Sensor xsns_125      //  <---------------  TRL
 
 line 459
-D_SENSOR_FLOW "|" D_SENSOR_FLOW "_n|" D_SENSOR_FLOW_LED "|"                 // <---------------  TRL
+D_SENSOR_FLOW "|" D_SENSOR_FLOW "_n|" D_SENSOR_FLOW_LED "|"    // Flow xsns_125  // <---------------  TRL
 
 line 542
 #ifdef USE_FLOW
@@ -252,7 +252,7 @@ line 542
 
 tasmota/language/en_GB.h
 at line 921
-#define D_SENSOR_FLOW          "H2O Flow"                                   // <---------------  TRL
+#define D_SENSOR_FLOW          "H2O Flow"      // Flow xsns_125             // <---------------  TRL
 #define D_SENSOR_FLOW_N        "H2O Flow N"
 #define D_SENSOR_FLOW_LED      "H2O Flow Led"
 
@@ -302,29 +302,9 @@ at line 921
 
 /* ******************************************************** */
 // Format  1.3a = 0x01 03 01, 1.4 0x01 04 00
-const uint32_t MyFlow_Settings_VERSION = 0x010401;       // Latest driver file settings version)
-const char Flow_SW_Version[8] = "1.4a";
+const uint32_t  MyFlow_Settings_VERSION = 0x010401;       // Latest settings version)
+const char      Flow_SW_Version[8] = "1.4a";
 
-<<<<<<< HEAD
-// xsns125 Flow Counter varables in settings.h
-
-// struct MYSETTINGS
-// {
-//   uint8_t  FlowCtr_type =                        0;    // Current type of flow sensor, 0 = flow per unit,  1,2 = K-Offset
-//   uint8_t  FlowCtr_units =                       0;    // Current flow units
-//   uint16_t FlowCtr_debounce_low =                0;    // Current debounce values...
-//   uint16_t FlowCtr_debounce_high =               0;
-//   uint16_t FlowCtr_debounce =                    0;
-//   uint16_t FlowCtr_MQTT_bit_mask =          0xffff;    // MQTT Bit Mask, Controls what we send
-//   uint16_t FlowCtr_current_send_interval =      10;    // in seconds
-//   uint32_t flow_threshold_reset_time =    5 * 60 * 1000; // Excessive flow threshold timeout, in milliseconds (20 Min)  
-//   float    FlowCtr_max_flow_rate  =           60.0;    // Sensor Max Flow rate in units of flow...
-//   float    FlowCtr_threshold_max =            20.0;    // Excessive flow threshold in units of flow
-//   float    FlowCtr_rate_factor =               1.0;    // Current Rate Factor
-//   float    FlowCtr_k =                        .153;    // For K-Offset flow sensor (--> CST 1in ELF sensor)
-//   float    FlowCtr_offset =                  1.047;    // Current Offset
-// } MySettings;
-=======
 // this is the current settings values from filesystem (44 bytes)
 struct MYSETTINGS
 {
@@ -344,7 +324,6 @@ struct MYSETTINGS
   float    FlowCtr_k =                      xFlowCtr_k;                         // For K-Offset flow sensor (--> CST 1in ELF sensor)
   float    FlowCtr_offset =                 xFlowCtr_offset;                    // Current Offset (--> CST 1in ELF sensor)
 } MySettings;
->>>>>>> acb59cff9e5865cbdec77955d42efaa04860ab84
 
 
 /* ******************************************************** */
@@ -504,7 +483,7 @@ void FlowSettingsDefault(void)
 /* ******************************************************** */
 void FlowSettingsDelta(void) 
 {
-  if (MySettings.version != MyFlow_Settings_VERSION)            // Fix version dependent changes
+  if (MySettings.version != MyFlow_Settings_VERSION)                              // Fix version dependent changes
   {     
     // Set current version and save settings file
     MySettings.version = MyFlow_Settings_VERSION;
@@ -661,6 +640,7 @@ void FlowCtrInit(void)
 
 
 /* ******************************************************** */
+/* ****************** Main Loop *************************** */
 /* ******************************************************** */
 void FlowCtrFlowEverySecond(void)
 {
@@ -683,7 +663,7 @@ void FlowCtrFlowEverySecond(void)
     {
       FlowCtr.OneMinute = 0;
       FlowCtr.OldFlowRate = FlowCtr.CurrentFlow;
-      if (flow_current_pulse_count > FlowCtr.LastPulseCount)                  // check to see if we have a new flow pulse
+      if (flow_current_pulse_count > FlowCtr.LastPulseCount)             // check to see if we have a new flow pulse
       {                                                                  // yes, we have a flow...
         FlowCtr.Freq = (1.0 / ((float) flow_pulse_period / 1000000.0));  // flow_pulse_period is in microseconds
         if (FlowCtr.Freq < 0.0f) FlowCtr.Freq = 0.0f;
@@ -714,7 +694,7 @@ void FlowCtrFlowEverySecond(void)
         FlowCtr.VolumePerFlow         += FlowCtr.CurrentFlow ;
 
         FlowCtr.WeHaveFlow = true;
-        FlowCtr.LastPulseCount = flow_current_pulse_count;                    // save current pulse count
+        FlowCtr.LastPulseCount = flow_current_pulse_count;                // save current pulse count
 
       }   // end of: if (flow_current_pulse_count > FlowCtr.LastPulseCount)
       else                                                                // no change in pulse count
@@ -912,6 +892,7 @@ void FlowCtrShow(bool json)
         WSContentSend_PD(PSTR("{s}" "We Have Flow{m}%d{e}"), (int8_t)   FlowCtr.WeHaveFlow);
         WSContentSend_PD(PSTR("{s}" "Flow Over Threshold{m}%d{e}"), (int8_t) FlowCtr.WeHaveFlowOverThreshold);
         WSContentSend_PD(PSTR("{s}" "Excess Flow{m}%d{e}"), (int8_t)    FlowCtr.WeHaveExcessFlow );
+        WSContentSend_PD(PSTR("{s}" "Sensor Type{m}%d{e}"), (int8_t)    MySettings.FlowCtr_type ); 
 
 #endif      // end of: USE_WEBSERVER
       }   // end of: if (json) else
