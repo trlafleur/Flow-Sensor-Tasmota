@@ -110,58 +110,43 @@ Most of these settings are changeable from commands to the device.
 Sensor Commands:
 
 ~~~
-Command Format: Sensor125 1,2
+  Xsns127Cmnd:
 
-1	Flow Sensor Type:
-       0 	Pulse per unit (GPM....)  Default
-       1	K-Offset flowrate = (freq + offset) * K --> freq = (PPM / K)
-       2 	K-Offset flowrate = (freq + offset) / K --> freq = (PPM * K)
+  format: Sensor125 1,2,3
 
-2 	Flow rate factor:
-       Unit per pulse from flow meter examples, float
-       Default = 1
+      0            0   set defaults to file system, reset driver   
+     
+      1     type   0   pulse per unit (GPM....)
+                   1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K)
+                   2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K)
 
-3 	K 	
-       K value for device, float
-       
-4 	Offset
-       Offset value for device, float
-       
-5 	Flow units:
-       0 = GPM GAL Gallons per minutes. Default
-       1 = Cft CF Cubic Feet per minutes
-       2 = M3 CM Cubic Meters per minutes
-       3 = LM Liters per minutes
-       
-6 	Excess Flow Threshold 
-       Flow rate at which to trigger an excess flow, float
-       Default = 15
-       
-7 	Excess Flow Threshold Time
-       Time in seconds to report excessive flow, Integer
-       Default = 1200 seconds (20 minutes)
-       If set to zero, will disable.
-       
-8 	Minimal Send Interval in second's, Integer
-       How often we send information
-       Default = 60 seconds
-       
-9 	MQTT Bit Mask, 16 bits hex
-       Use to enable/disable MQTT messages
-       Default = FFFF (all enabled)
-       
-10 	Max Flow Rate, float
-       Max flow rate for this sensor
-       
-11 	Debounce Time, Integer
-       0 = off, 1 = on (See Counter sensor for detail information)
-       Default = 0
-
-12 	Debounce Low Time, Integer 
-       In Milliseconds, Default = 0
-
-13 	Debounce High Time, Integer
-       In Milliseconds, Default = 0
+      2     rate_factor    // unit per pulse from flow meter examples, float
+                        0.1   0.1 gal per minute            GPM
+                        1       1 gal per minute            GPM
+                        10      10 gal per minute           GPM
+                        100     100 gal gal per minute      GPM
+                        7.48052 1 cubic feet                Cft
+                        74.8052 10 cubic feet               Ctf
+                        748.052 100 cubic feet              Cft
+                        1       1 cubic meter               M3
+                        1       1 litres                    LM
+      3     K              // K value from device, float
+      4     Offset         // Offset value from device, float
+      5     Flow_units
+                        0 = GPM     GAL Gallons per minutes
+                        1 = Cft     CF  Cubic Feet per minutes
+                        2 = M3      CM  Cubic Metre per minutes
+                        3 = LM      L   Litres per minutes
+      6     Excess Flow Threshold                         // flow rate at which to trigger an excess flow
+      7     Excess Flow Threshold Time                    // time in seconds to report excessive flow
+      8     Current Send Interval in second's             // how often we send MQTT information when we have a flow 
+      9     MQTT Bit Mask, 16 bits                        // use to enable/disable MQTT messages
+      10    Max Flow Rate                                 // Max flow rate for this sensor
+      11    Debounce 0 = off, 1 = on
+      12    Debounce Low Time in MS
+      13    Debounce High Time in MS
+      14    Set Flow Units to any text 1-7 char 
+      15    Set Flow Volume Units to any text 1-7 char
        
 ----------------------------------
 MQTT send bit mask: We use this to enable/disable MQTT messages
