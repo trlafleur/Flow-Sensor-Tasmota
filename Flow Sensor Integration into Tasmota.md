@@ -38,7 +38,7 @@ and they are documented below.
  *   7-Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code (removed, See 1.4)
  *   1-Aug-2022  1.3   TRL - Moved to 12.1.0.2, Moved MySettings back to local space, not in settings.h for now (removed, See 1.4)
  *  19-Dec-2022  1.3a  TRL - Moved to 12.3.1.1
- *  16-Jan-2023  1.4   TRL - added save settings to flash file system
+ *  16-Jan-2023  1.4   TRL - added saving settings to flash file system
  *  17-Jan-2023  1.4a  TRL - change some variables names, option for defaults settings to be in --> user_config_override.h
  *  13-Dec-2023  1.4b  TRL - Added 4 decimal digits to flow rate factor 0.0000, removed some dead code
  *  20-Dec-2023  1.4c  TRL - refactoring of code base, code cleanup
