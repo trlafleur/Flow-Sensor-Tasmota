@@ -2,7 +2,7 @@
   xsns_125_flow_counter.ino - Flow sensors (water meters... sensor support for Tasmota)
 
   tom@lafleur.us
-  Copyright (C) 2022, 2023  Tom Lafleur and Theo Arends
+  Copyright (C) 2022, 2023, 2024  Tom Lafleur and Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -24,15 +24,15 @@
  *  DATE         REV  DESCRIPTION
  *  -----------  ---   ----------------------------------------------------------
  *   1-Oct-2021  1.0   TRL - first build
- *   3-Apr-2022  1.1   TRL - refactoring of code base
+ *   3-Apr-2022  1.1   TRL - refactoring of the code base
  *   5-Apr-2022  1.1a  TRL - added check for sufficient flow change
- *   7-Apr-2022  1.2   TRL - Local Data-struct was change to dynamic
+ *   7-Apr-2022  1.2   TRL - Local Data-struct was changed to dynamic
  *   7-Apr-2022  1.2a  TRL - Moved MySettings to settings.h in base code (removed, See 1.4)
  *   1-Aug-2022  1.3   TRL - Moved to 12.1.0.2, Moved MySettings back to local space, not in settings.h for now (removed, See 1.4)
  *  19-Dec-2022  1.3a  TRL - Moved to 12.3.1.1
- *  16-Jan-2023  1.4   TRL - added save setings to flash file system
+ *  16-Jan-2023  1.4   TRL - added saving settings to flash file system
  *  17-Jan-2023  1.4a  TRL - change some variables names, option for defaults settings to be in --> user_config_override.h
- *  13-Dec-2023  1.4b  TRL - Added 4 decimal digit to flow rate factor 0.0000, removed some dead code
+ *  13-Dec-2023  1.4b  TRL - Added 4 decimal digits to flow rate factor 0.0000, removed some dead code
  *  20-Dec-2023  1.4c  TRL - refactoring of code base, code cleanup
  *  20-DEC-2023  1.5   TRL - MOVE TO 13.3.0.1
  * 
@@ -53,43 +53,43 @@
 /* **************************************************************************************
     Notes:
 
-    This program is for residential type water and flow meters, 
-    may or may not be suitable for large volume industrial meters.
+    This program is for residential-type water and flow meters, 
+    may or may not be suitable for large-volume industrial meters.
 
-    There are two basic type of water flow meters, some that produce a pulse per unit of flow,
+    There are two basic types of water flow meters, some produce a pulse per unit of flow,
     and K-Offset flow meters.
 
-    Unit per flow meter, give a pulse per unit of flow, typical devices give 1 to 100 gal/pulse or 
-    a pulse per cubic feet of water. One "unit" of of water is 100 ccf or 748.052 gals.
+    Unit per flow meter gives a pulse per unit of flow, typical devices give 1 to 100 gal/pulse or 
+    a pulse per cubic feet of water. One "unit" of water is 100 ccf or 748.052 gals.
 
-    Almost all of the turbine type flow sensors used in irrigation, use two calibration factors
-    specified: a “K” factor and an “Offset”.
+    Almost all of the turbine-type flow sensors used in irrigation, use two calibration factors
+    specified: a K factor and an Offset.
 
-    During calibration the manufacturer measures the pulse rate outputs for a number of precise flow rates.
+    During calibration, the manufacturer measures the pulse rate outputs for several precise flow rates.
     These are plotted, but since the turbine has some friction, the graph will not be
-    linear especially at the low end and a linear regression is done to get a best fit straight line.
-    The “K” factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved.
-    Offset represents the small amount of liquid flow required to start the turbine moving.
+    linear, especially at the low end and a linear regression is done to get a best-fit straight line.
+    The K factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved.
+    The offset represents the small amount of liquid flow required to start the turbine moving.
     You can assume that if any pulses are arriving at all, at least the offset volume of liquid is moving.
 
-    There does not seem to be a standard for how K factor flow meters are presented.
+    There does not seem to be a standard for how K-factor flow meters are presented.
     Flow sensors output a pulse stream at a frequency proportional to the flow volume as calibrated,
     With some sensors like CST, RainBird, you multiply the pulse frequency by the K factor to obtain a volume rate.
     Others however like Badger, require you to divide the pulse frequency by K.
 
-    So there are two basic type of K-Offset flow sensors, CST and many other are of type = 1,
-    Some like Badger are of type = 2. So read the vendors data sheet!
+    So there are two basic types of K-Offset flow sensors, CST and many others are of type = 1,
+    Some like Badger are of type = 2. So read the vendor's data sheet!
 
-    Frequency = (Gallons per Minute / K ) – Offset  or  = (Gallons per Minute * K ) – Offset
+    Frequency = (Gallons per Minute / K )  Offset  or  = (Gallons per Minute * K )  Offset
     We are measuring pulse frequency so turning the equation around:
     Gallons per minute = (Frequency + Offset) * K  or  = (Frequency + offset) / K
 
     // flow meter type
-    FlowCtr_type    0   pulse per unit (GPM....)
+    FlowCtr_type    0   pulses per unit (GPM....)
                     1   K-Offset    flowrate = (freq + offset) * K  --> freq = (PPM / K) - offset
                     2   K-Offset    flowrate = (freq + offset) / K  --> freq = (PPM * K) - offset
 
-    // unit per pulse from flow meter
+    // unit per pulse from the flow meter
     FlowCtr_rate_factor                             flow_units
                 0.1   0.1 gal per minute            GPM
                 1       1 gal per minute            GPM
@@ -99,15 +99,15 @@
                 74.8052 10 cubic feet               Cft
                 748.052 100 cubic feet  (unit)      Cft
                 1       1 cubic meter               M3
-                1       1 litres                    LM
+                1       1 litre                     LM
 
     FlowCtr_units
-                0 = GPM     Gallons per minutes   <--- defaults
-                1 = CFT     Cubic Feet per minutes
-                2 = M3      Cubic Metre per minutes
+                0 = GPM     Gallons per minute   <--- defaults
+                1 = CFT     Cubic Feet per minute
+                2 = M3      Cubic Metres per minute
                 3 = LM      Litres per minutes
 
- *  Some information on the 1 gpm water meter and flow rates.
+ *  Some information on the 1 GPM water meter and flow rates.
  *     1 Gal/per/min        period      Freq in Hz
  *  ---------------------------------------------------
  *  1   Pulse = 1   gal     60  sec    .01667 Hz
@@ -119,13 +119,13 @@
  *  .5  Pulse = .5  gal     120 sec    .00833 Hz
  *
  *
- * At 1-GPM flow rate, its takes 1 minutes for one pulse from sensor,
- *  so for 0.25-GPM rate its takes 4 minutes between pulses...
+ * At a 1-GPM flow rate, it takes 1 minute for one pulse from the sensor,
+ *  so for 0.25-GPM rate it takes 4 minutes between pulses...
  *
- * We will typical limit the flow range to be about .25gpm to 60gpm for a 1 GPM sensor
- *  We will reset flow period timer at 4 minutes or so if no pulses...
+ * We will typically limit the flow range to about .25gpm to 60gpm for a 1 GPM sensor
+ *  We will reset the flow period timer at 4 minutes or so if no pulses...
  * 
- * We also sense for excessive flow, we do this by setting a excessive flow limit
+ * We also sense excessive flow, we do this by setting an excessive flow limit
  *  and the amount of time it takes to be over this limit.
  *   
  * Most of these settings are changeable from commands to the device.
@@ -171,18 +171,18 @@
                         74.8052 10 cubic feet               Ctf
                         748.052 100 cubic feet              Cft
                         1       1 cubic meter               M3
-                        1       1 litres                    LM
-      3     K              // K value from device, float
+                        1       1 litre                     LM
+      3     K              // K value from the device, float
       4     Offset         // Offset value from device, float
       5     Flow_units
-                        0 = GPM     GAL Gallons per minutes
-                        1 = Cft     CF  Cubic Feet per minutes
-                        2 = M3      CM  Cubic Metre per minutes
+                        0 = GPM     GAL Gallons per minute
+                        1 = Cft     CF  Cubic Feet per minute
+                        2 = M3      CM  Cubic Metre per minute
                         3 = LM      L   Litres per minutes
       6     Excess Flow Threshold                         // flow rate at which to trigger an excess flow
       7     Excess Flow Threshold Time                    // time in seconds to report excessive flow
-      8     Current Send Interval in second's             // how often we send MQTT information when we have a flow 
-      9     MQTT Bit Mask, 16 bits                        // use to enable/disable MQTT messages
+      8     Current Send Interval in seconds              // How often we send MQTT information when we have a flow 
+      9     MQTT BitMask, 16 bits                         // used to enable/disable MQTT messages
       10    Max Flow Rate                                 // Max flow rate for this sensor
       11    Debounce 0 = off, 1 = on
       12    Debounce Low Time in MS
@@ -192,7 +192,7 @@
       
 
   **************************************************************************************
-  MQTT_send_bit_mask:                    // we use this mask to enable/disable MQTT messages
+  MQTT_send_bit_mask:                    //We use this mask to enable/disable MQTT messages
         0       FlowCount      
         1       Flow
         2       FlowPeriod
@@ -225,9 +225,9 @@
  #define xFlowCtr_debounce_low                  0         // Current debounce values...
  #define xFlowCtr_debounce_high                 0 
  #define xFlowCtr_debounce                      0 
- #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT Bit Mask, Controls what we send via MQTT
+ #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT BitMask, Controls what we send via MQTT
  #define xFlowCtr_current_send_interval        10         // In second's
- #define xFlow_threshold_reset_time     (20 * 60 * 1000)  // Excessive flow threshold timeout, in miliseconds (20 Min)  
+ #define xFlow_threshold_reset_time     (20 * 60 * 1000)  // Excessive flow threshold timeout, in milliseconds (20 Min)  
  #define xFlowCtr_max_flow_rate              60.0f        // Sensor Max Flow rate in units of flow...
  #define xFlowCtr_threshold_max              20.0f        // Excessive flow threshold in units of flow
  #define xFlowCtr_rate_factor                 1.0f        // Current Rate Factor
@@ -259,7 +259,29 @@ at line 961
 #define D_SENSOR_FLOW          "H2O Flow"      // Flow xsns_125             // <---------------  TRL
 #define D_SENSOR_FLOW_LED      "H2O Flow Led"
 
+tasmota/user_config_override.h
+
+#ifndef USE_FLOW       // My flow meter x125
+// define here or in xsns_125_flow_counter.ino
+  #define USE_FLOW
+  #define xFlowCtr_type                          0         // Current type of flow sensor, 0 = flow per unit,  1, 2 = K-Offset
+  #define xFlowCtr_units                         0         // Current flow units
+  #define xFlowCtr_debounce_low                  0         // Current debounce values...
+  #define xFlowCtr_debounce_high                 0 
+  #define xFlowCtr_debounce                      0 
+  #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT BitMask, Controls what we send via MQTT
+  #define xFlowCtr_current_send_interval        10         // in seconds
+  #define xFlow_threshold_reset_time     (20 * 60 *1000)   // Excessive flow threshold timeout, in milliseconds (20 Min)  
+  #define xFlowCtr_max_flow_rate              60.0f        // Sensor Max Flow rate in units of flow...
+  #define xFlowCtr_threshold_max              20.0f        // Excessive flow threshold in units of flow
+  #define xFlowCtr_rate_factor                 1.0f        // Current Rate Factor
+  #define xFlowCtr_k                          .153f        // For K-Offset flow sensor (--> CST 1in ELF sensor)
+  #define xFlowCtr_offset                    1.047f        // Current Offset
+
+#endif
+
 */
+
 
 /* ******************************************************** */
 #ifdef USE_FLOW
@@ -269,7 +291,7 @@ at line 961
   #define DEBUG_MyFlow
 #endif
 
-#ifdef ESP32                       // ESP32 only.
+#ifdef ESP32                       // ESP32 only...
 
 /*********************************************************************************************\
  * Flow sensors for Water meters, units per minute or K-Offset types...
@@ -307,6 +329,25 @@ at line 961
 // Format  1.3a = 0x01 03 01, 1.4 0x01 04 00
 const uint32_t  MyFlow_Settings_VERSION = 0x010500;       // Latest settings version)
 const char      Flow_SW_Version[8] = "1.5";
+
+
+// Sensor Defaults can be made here or in --> user_config_override.h, by #define FlowDefaultsExternal
+#ifndef FlowDefaultsExternal      
+  #define xFlowCtr_type                          0         // Current type of flow sensor, 0 = flow per unit,  1, 2 = K-Offset
+  #define xFlowCtr_units                         0         // Current flow units
+  #define xFlowCtr_debounce_low                  0         // Current debounce values...
+  #define xFlowCtr_debounce_high                 0 
+  #define xFlowCtr_debounce                      0 
+  #define xFlowCtr_MQTT_bit_mask            0xffff         // MQTT Bit Mask, Controls what we send via MQTT
+  #define xFlowCtr_current_send_interval        10         // MQTT send time in seconds
+  #define xFlow_threshold_reset_time     (20 * 60 *1000)   // Excessive flow threshold timeout, in miliseconds (20 Min)  
+  #define xFlowCtr_max_flow_rate              60.0f        // Sensor Max Flow rate in units of flow...
+  #define xFlowCtr_threshold_max              20.0f        // Excessive flow threshold in units of flow
+  #define xFlowCtr_rate_factor                 1.0f        // Current Rate Factor
+  #define xFlowCtr_k                          .153f        // For K-Offset flow sensor (--> CST 1in ELF sensor)
+  #define xFlowCtr_offset                    1.047f        // Current Offset
+#endif
+
 
 // this is the current settings values from filesystem (44 bytes)
 struct MYSETTINGS
@@ -459,6 +500,7 @@ uint32_t FlowSettingsCrc32(void)
       // Use Tasmota CRC calculation function
   return GetCfgCrc32( (uint8_t*) &MySettings +4, sizeof(MySettings) -4);
 }
+
 
 /* ******************************************************** */
 void FlowSettingsDefault(void) 
