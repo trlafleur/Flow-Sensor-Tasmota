@@ -71,18 +71,18 @@ and they are documented below.
     a pulse per cubic feet of water. One "unit" of water is 100 ccf or 748.052 gals.
 
     Almost all of the turbine-type flow sensors used in irrigation, use two calibration factors
-    specified: a K factor and an Offset.
+    specified: a K factor and an Offset.
 
     During calibration, the manufacturer measures the pulse rate outputs for several precise flow rates.
     These are plotted, but since the turbine has some friction, the graph will not be
     linear, especially at the low end and a linear regression is done to get a best-fit straight line.
-    The K factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved.
+    The K factor represents the slope of the fitted line and has a dimension of pulses per unit volume moved.
     The offset represents the small amount of liquid flow required to start the turbine moving.
     You can assume that if any pulses are arriving at all, at least the offset volume of liquid is moving.
 
     There does not seem to be a standard for how K-factor flow meters are presented.
     Flow sensors output a pulse stream at a frequency proportional to the flow volume as calibrated,
-    With some sensors like CST, RainBird, you multiply the pulse frequency by the K factor to obtain a volume rate.
+    With some sensors like CST, and RainBird, you multiply the pulse frequency by the K factor to obtain a volume rate.
     Others however like Badger, require you to divide the pulse frequency by K.
 
     So there are two basic types of K-Offset flow sensors, CST and many others are of type = 1,
