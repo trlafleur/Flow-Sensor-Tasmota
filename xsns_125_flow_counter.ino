@@ -32,7 +32,7 @@
  *  19-Dec-2022  1.3a  TRL - Moved to 12.3.1.1
  *  16-Jan-2023  1.4   TRL - added save setings to flash file system
  *  17-Jan-2023  1.4a  TRL - change some variables names, option for defaults settings to be in --> user_config_override.h
- *
+ *  13-Dec-2023  1.4b  TRL - Added 4 decimal digit to flow rate factor 0.0000, removed some dead code
  *
  *  Notes:  1)  Tested with TASMOTA  12.3.1.1
  *          2)  ESP32, ESP32S3
@@ -184,6 +184,8 @@
       11    Debounce 0 = off, 1 = on
       12    Debounce Low Time in MS
       13    Debounce High Time in MS
+      14    Set Flow Units to any text 1-7 char 
+      15    Set Flow Volume Units to any text 1-7 char
       
 
   **************************************************************************************
@@ -383,6 +385,7 @@ void FlowSettingsDefault(void);
 void FlowSettingsDelta(void);
 void FlowSettingsLoad(void);
 void FlowSettingsSave(void);
+void CmdErrorMsg (void);
 
 
 /* ******************************************************** */
@@ -555,17 +558,17 @@ void FlowSettingsSave(void)
 
 
 /* ******************************************************** */
-bool FlowCtrPinState(void)
+ bool FlowCtrPinState(void)
 {
-  if ((XdrvMailbox.index >= AGPIO(GPIO_FLOW_NP)) && (XdrvMailbox.index < (AGPIO(GPIO_FLOW_NP))))
+  /* if ((XdrvMailbox.index >= AGPIO(GPIO_FLOW_NP)) && (XdrvMailbox.index < (AGPIO(GPIO_FLOW_NP))))
   {
     bitSet(FlowCtr.no_pullup, XdrvMailbox.index - AGPIO(GPIO_FLOW_NP));
     XdrvMailbox.index -= (AGPIO(GPIO_FLOW_NP) - AGPIO(GPIO_FLOW));
     return true;
-  }
+ }
+ */ 
   return false;
 }
-
 
 /* ******************************************************** */
 void FlowCtrInit(void)
@@ -730,10 +733,10 @@ void FlowCtrFlowEverySecond(void)
     float OFR = round(FlowCtr.OldFlowRate * 10) / 10;
     float CF  = round(FlowCtr.CurrentFlow * 10) / 10;
 
-    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %8.4f, %8.4f,  %u"), "Flow rate MQTT Check", FlowCtr.CurrentFlow, FlowCtr.OldFlowRate, FlowCtr.SendingRate);
+    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %9.4f, %9.4f,  %u"), "Flow rate MQTT Check", FlowCtr.CurrentFlow, FlowCtr.OldFlowRate, FlowCtr.SendingRate);
     if  ((FlowCtr.CurrentFlow != 0) && ((OFR != CF) && (FlowCtr.SendingRate >= MySettings.FlowCtr_current_send_interval)))
     {
-    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %8.4f, %8.4f,  %u"), "Flow rate in MQTT Send", FlowCtr.CurrentFlow, FlowCtr.OldFlowRate, FlowCtr.SendingRate);
+    AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %9.4f, %9.4f,  %u"), "Flow rate in MQTT Send", FlowCtr.CurrentFlow, FlowCtr.OldFlowRate, FlowCtr.SendingRate);
       FlowCtr.SendingRate = 0;                                   // reset sending rate...
       ResponseClear();
       Response_P(PSTR("{\"FLOW\":{"));
@@ -879,20 +882,21 @@ void FlowCtrShow(bool json)
         {
           WSContentSend_PD(PSTR("{s}" D_FLOW_PERIOD "{m}%9.4f %s{e}"), (float) flow_pulse_period / 1000000.0, D_UNIT_SECOND);
           WSContentSend_PD(PSTR("{s}" D_Flow_Frequency "{m}%9.2f %s{e}"), FlowCtr.Freq, D_UNIT_HERTZ);
-          WSContentSend_PD(PSTR("{s}" D_FlowCtr_k "{m}%9.3f{e}"),       MySettings.FlowCtr_k);
-          WSContentSend_PD(PSTR("{s}" D_FlowCtr_offset "{m}%9.3f{e}"),  MySettings.FlowCtr_offset);
+          WSContentSend_PD(PSTR("{s}" D_FlowCtr_k "{m}%9.4f{e}"),       MySettings.FlowCtr_k);
+          WSContentSend_PD(PSTR("{s}" D_FlowCtr_offset "{m}%9.4f{e}"),  MySettings.FlowCtr_offset);
         }
-
-        WSContentSend_PD(PSTR("{s}" D_Flow_Factor "{m}%9.2f{e}"),       MySettings.FlowCtr_rate_factor); 
-        WSContentSend_PD(PSTR("{s}" "This Flow{m}%9.0f %s{e}"),         FlowCtr.VolumePerFlow,   FlowCtr.Current_Volume_Units);
+        WSContentSend_PD(PSTR("{s}" D_Flow_Factor "{m}%9.4f{e}"),       MySettings.FlowCtr_rate_factor); 
+        WSContentSend_PD(PSTR("{s}" "This Flow{m}%9.0f %s{e}"),         FlowCtr.VolumePerFlow,          FlowCtr.Current_Volume_Units);
         WSContentSend_PD(PSTR("{s}" "Current 1Hr Flow{m}%9.0f %s{e}"),  FlowCtr.Current1hrFlowVolume,   FlowCtr.Current_Volume_Units);
-        WSContentSend_PD(PSTR("{s}" "Current 24Hr Flow{m}%9.0f %s{e}"), FlowCtr.Current24hrFlowVolume, FlowCtr.Current_Volume_Units);  
-        WSContentSend_PD(PSTR("{s}" "Last 1Hr Flow{m}%9.0f %s{e}"),     FlowCtr.Saved1hrFlowVolume,   FlowCtr.Current_Volume_Units);
-        WSContentSend_PD(PSTR("{s}" "Last 24Hr Flow{m}%9.0f %s{e}"),    FlowCtr.Saved24hrFlowVolume, FlowCtr.Current_Volume_Units);
-        WSContentSend_PD(PSTR("{s}" "We Have Flow{m}%d{e}"), (int8_t)   FlowCtr.WeHaveFlow);
-        WSContentSend_PD(PSTR("{s}" "Flow Over Threshold{m}%d{e}"), (int8_t) FlowCtr.WeHaveFlowOverThreshold);
-        WSContentSend_PD(PSTR("{s}" "Excess Flow{m}%d{e}"), (int8_t)    FlowCtr.WeHaveExcessFlow );
+        WSContentSend_PD(PSTR("{s}" "Current 24Hr Flow{m}%9.0f %s{e}"), FlowCtr.Current24hrFlowVolume,  FlowCtr.Current_Volume_Units);  
+        WSContentSend_PD(PSTR("{s}" "Last 1Hr Flow{m}%9.0f %s{e}"),     FlowCtr.Saved1hrFlowVolume,     FlowCtr.Current_Volume_Units);
+        WSContentSend_PD(PSTR("{s}" "Last 24Hr Flow{m}%9.0f %s{e}"),    FlowCtr.Saved24hrFlowVolume,    FlowCtr.Current_Volume_Units);
+        WSContentSend_PD(PSTR("{s}" "We Have Flow{m}%s{e}"),            (FlowCtr.WeHaveFlow)              ? "Yes" : "No");
+        WSContentSend_PD(PSTR("{s}" "Flow Over Threshold{m}%s{e}"),     (FlowCtr.WeHaveFlowOverThreshold) ? "Yes" : "No");
+        WSContentSend_PD(PSTR("{s}" "Excess Flow{m}%s{e}"),             (FlowCtr.WeHaveExcessFlow)        ? "Yes" : "No");
         WSContentSend_PD(PSTR("{s}" "Sensor Type{m}%d{e}"), (int8_t)    MySettings.FlowCtr_type ); 
+
+        //   (FlowCtr.WeHaveExcessFlow) ? "true" : "false"); 
 
 #endif      // end of: USE_WEBSERVER
       }   // end of: if (json) else
@@ -902,7 +906,6 @@ void FlowCtrShow(bool json)
     ResponseJsonEnd();
   }
 }   // end of: void FlowShow(bool json)
-
 
 
 /*********************************************************************************************\
@@ -919,105 +922,242 @@ bool Xsns125Cmnd(void)
   //AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %u"), "Arg 3", strtol(ArgV(argument, 3), nullptr, 10) );
   //AddLog( LOG_LEVEL_DEBUG, PSTR("%s: %u"), "Index", XdrvMailbox.index );
 
-  if (ArgC() > 1)                                       // we always expect a 2nd parameter
+  if (ArgC() > 0 )                                       // we always expect a 1 or more parameter
   {
     switch (XdrvMailbox.payload)
     {
     case 0: // Save defaults to filesystem
-      FlowSettingsDefault();
       AddLog(LOG_LEVEL_INFO, PSTR("%s: "), "X125-Flow: Case 0, Save defaults to filesystem");
+      FlowSettingsDefault();
       break;
-      
+ 
     case 1: // Flow Type
        // check range of type, 0-->2 only
-      if (((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) >= 0) && ((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) <= 2)) // uint8_t
+      if (ArgC() > 1)  
       {
-        MySettings.FlowCtr_type = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);  // uint8_t
-        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 1, Flow Type", MySettings.FlowCtr_type);
+        if (((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) >= 0) && ((uint8_t)strtol(ArgV(argument, 2), nullptr, 10) <= 2)) // uint8_t
+        {
+          MySettings.FlowCtr_type = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10);  // uint8_t
+          AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 1, Flow Type", MySettings.FlowCtr_type);
+        }
+        else
+        {
+          CmdErrorMsg ();
+        }
+      }
+      else
+      {
+        CmdErrorMsg ();
       }
       break;
 
     case 2: // Flow Factor
-      MySettings.FlowCtr_rate_factor = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 2, Flow Factor", MySettings.FlowCtr_rate_factor);
+      if (ArgC() > 1)  
+      {
+        MySettings.FlowCtr_rate_factor = CharToFloat(ArgV(argument, 2));
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 2, Flow Factor", MySettings.FlowCtr_rate_factor);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }
       break;
 
     case 3: // Flow K
-      MySettings.FlowCtr_k = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 3, Flow K", MySettings.FlowCtr_k);
-      break;
+      if (ArgC() > 1)  
+      {
+        MySettings.FlowCtr_k = CharToFloat(ArgV(argument, 2));
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 3, Flow K", MySettings.FlowCtr_k);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      break;
 
     case 4: // Flow Offset
-      MySettings.FlowCtr_offset = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 4, Flow Offset", MySettings.FlowCtr_offset);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_offset = CharToFloat(ArgV(argument, 2));
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 4, Flow Offset", MySettings.FlowCtr_offset);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 5: // Flow Units
-      MySettings.FlowCtr_units = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10); // uint8_t
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 5, Flow Units", MySettings.FlowCtr_units);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_units = (uint8_t) strtol(ArgV(argument, 2), nullptr, 10); // uint8_t
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 5, Flow Units", MySettings.FlowCtr_units);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 6: // Excess flow threshold max count
-      MySettings.FlowCtr_threshold_max = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 6, Max Flow", MySettings.FlowCtr_threshold_max);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_threshold_max = CharToFloat(ArgV(argument, 2));
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %7.3f"), "X125-Flow: Case 6, Max Flow", MySettings.FlowCtr_threshold_max);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 7:   // Flow Threshold Time in second's (convert to milliseconds)
-      MySettings.Flow_threshold_reset_time = (1000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 7, Max Flow Time", MySettings.Flow_threshold_reset_time);
+      if (ArgC() > 1)  
+      {      
+        MySettings.Flow_threshold_reset_time = (1000) * (uint32_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 7, Max Flow Time", MySettings.Flow_threshold_reset_time);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }
       break;
 
     case 8:  // Current Sample Interval in second's, lower limit to 10 seconds
-      if ((uint16_t) strtol(ArgV(argument, 2), nullptr, 10) == 0)   MySettings.FlowCtr_current_send_interval = 1;
-      else MySettings.FlowCtr_current_send_interval = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 8, Sample Interval", MySettings.FlowCtr_current_send_interval);
+      if (ArgC() > 1)  
+      {      
+        if ((uint16_t) strtol(ArgV(argument, 2), nullptr, 10) == 0)   MySettings.FlowCtr_current_send_interval = 1;
+        else MySettings.FlowCtr_current_send_interval = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 8, Sample Interval", MySettings.FlowCtr_current_send_interval);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break; 
 
     case 9:   // MQTT Bit Mask, 16 bits
-      MySettings.FlowCtr_MQTT_bit_mask = (uint16_t) strtol(ArgV(argument, 2), nullptr, 16);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: 0x%04x"), "X125-Flow: Case 9, MQTT Bit Mask", MySettings.FlowCtr_MQTT_bit_mask);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_MQTT_bit_mask = (uint16_t) strtol(ArgV(argument, 2), nullptr, 16);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: 0x%04x"), "X125-Flow: Case 9, MQTT Bit Mask", MySettings.FlowCtr_MQTT_bit_mask);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
       
     case 10: // Max Flow Rate
-      MySettings.FlowCtr_max_flow_rate = CharToFloat(ArgV(argument, 2));
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 10, Max Flow Rate", MySettings.FlowCtr_max_flow_rate);
+      if (ArgC() > 1)  
+      {     
+        MySettings.FlowCtr_max_flow_rate = CharToFloat(ArgV(argument, 2));
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 10, Max Flow Rate", MySettings.FlowCtr_max_flow_rate);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 11: // Flow Debounce time in MS
-      MySettings.FlowCtr_debounce = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 11, Flow Debounce", MySettings.FlowCtr_debounce);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_debounce = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 11, Flow Debounce", MySettings.FlowCtr_debounce);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 12: // Flow Debounce Low time in MS
-      MySettings.FlowCtr_debounce_low = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 12, Flow Debounce Low", MySettings.FlowCtr_debounce_low);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_debounce_low = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 12, Flow Debounce Low", MySettings.FlowCtr_debounce_low);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
 
     case 13: // Flow Debounce High time in MS
-      MySettings.FlowCtr_debounce_high = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
-      AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 13, Flow Debounce High", MySettings.FlowCtr_debounce_high);
+      if (ArgC() > 1)  
+      {      
+        MySettings.FlowCtr_debounce_high = (uint16_t) strtol(ArgV(argument, 2), nullptr, 10);
+        AddLog(LOG_LEVEL_INFO, PSTR("%s: %u"), "X125-Flow: Case 13, Flow Debounce High", MySettings.FlowCtr_debounce_high);
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }      
       break;
+
+    case 14: // Flow Units
+      if (ArgC() > 1)  
+      {      
+        if  ( (strlen ((ArgV(argument, 2))) > 0) && (strlen ((ArgV(argument, 2))) <= 7 ) )
+        {
+          strcpy (FlowCtr.Current_Units,  (ArgV(argument, 2)));   //  FlowCtr.Current_Units
+          AddLog (LOG_LEVEL_INFO, PSTR("%s: %s"), "X125-Flow: Case 14, Flow Units", FlowCtr.Current_Units );
+        }
+        else 
+        {
+          CmdErrorMsg ();
+        }
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }     
+      break;
+
+    case 15: // Flow Volume Units
+      if (ArgC() > 1)  
+      {     
+        if  ( (strlen ((ArgV(argument, 2))) > 0) && (strlen ((ArgV(argument, 2))) <= 7 ) )
+        { 
+          strcpy (FlowCtr.Current_Volume_Units,  (ArgV(argument, 2)));   //  FlowCtr.Current_Volume_Units
+          AddLog (LOG_LEVEL_INFO, PSTR("%s: %s"), "X125-Flow: Case 15, Flow Volume Units", FlowCtr.Current_Volume_Units );
+        }
+        else
+        {
+          CmdErrorMsg ();
+        }
+      }
+      else
+      {
+        CmdErrorMsg ();
+      }     
+      break;
+
 
       // we need to save MySettings to file system, then re-init driver...
       FlowSettingsSave();
       FlowCtrInit();
     }
   }
+  else
+  {
+    CmdErrorMsg ();
+  }
 
 
 // build a JSON response
   Response_P(PSTR("{\"" D_FLOWMETER_NAME "\":{\"Flow Type\":%d"),  MySettings.FlowCtr_type);
-  ResponseAppend_P(PSTR(",\"Flow Rate Factor\":%7.2f"),            MySettings.FlowCtr_rate_factor);
-  ResponseAppend_P(PSTR(",\"Flow K\":%7.2f"),                      MySettings.FlowCtr_k);
-  ResponseAppend_P(PSTR(",\"Flow Offset\":%7.2f"),                 MySettings.FlowCtr_offset);
+  ResponseAppend_P(PSTR(",\"Flow Rate Factor\":%9.4f"),            MySettings.FlowCtr_rate_factor);
+  ResponseAppend_P(PSTR(",\"Flow K\":%9.4f"),                      MySettings.FlowCtr_k);
+  ResponseAppend_P(PSTR(",\"Flow Offset\":%9.4f"),                 MySettings.FlowCtr_offset);
   ResponseAppend_P(PSTR(",\"Flow Units\":%d"),                     MySettings.FlowCtr_units);
-  ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%7.2f"),          MySettings.FlowCtr_threshold_max);
+  ResponseAppend_P(PSTR(",\"Flow Threshold_Max\":%9.2f"),          MySettings.FlowCtr_threshold_max);
   ResponseAppend_P(PSTR(",\"Flow Threshold Time\":%u"),            MySettings.Flow_threshold_reset_time);
   ResponseAppend_P(PSTR(",\"Flow Sample Interval\":%u"),           MySettings.FlowCtr_current_send_interval);
   char hex_data[8];
   sprintf(hex_data, "%04x",                                        MySettings.FlowCtr_MQTT_bit_mask);
   ResponseAppend_P(PSTR(",\"MQTT Bit Mask\":\"0x%s\""), hex_data );
-  ResponseAppend_P(PSTR(",\"Max Flow Rate\":%7.2f"),               MySettings.FlowCtr_max_flow_rate);
+  ResponseAppend_P(PSTR(",\"Max Flow Rate\":%9.2f"),               MySettings.FlowCtr_max_flow_rate);
   ResponseAppend_P(PSTR(",\"Flow Debounce \":%u"),                 MySettings.FlowCtr_debounce);
   ResponseAppend_P(PSTR(",\"Flow Debounce Low \":%u"),             MySettings.FlowCtr_debounce_low);
   ResponseAppend_P(PSTR(",\"Flow Debounce High \":%u"),            MySettings.FlowCtr_debounce_high);
@@ -1026,6 +1166,12 @@ bool Xsns125Cmnd(void)
   return true;
 }   // end of bool Xsns125Cmnd(void)
 
+
+/* ******************************************************** */
+void CmdErrorMsg (void)
+{
+  AddLog (LOG_LEVEL_INFO, PSTR("%s: %s"), "X125-Flow:", "Command Error" );
+}
 
 /*********************************************************************************************\
  * Interface
@@ -1093,7 +1239,7 @@ bool Xsns125(uint32_t function)
       break;
 
     case FUNC_PIN_STATE:
-      result = FlowCtrPinState();     // do FlowCtrPinState()
+       result = FlowCtrPinState();     // do FlowCtrPinState()
       AddLog( LOG_LEVEL_DEBUG, PSTR("Debug: In Command Function Pin State"));
       break;
 
