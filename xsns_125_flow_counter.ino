@@ -33,7 +33,8 @@
  *  16-Jan-2023  1.4   TRL - added save setings to flash file system
  *  17-Jan-2023  1.4a  TRL - change some variables names, option for defaults settings to be in --> user_config_override.h
  *  13-Dec-2023  1.4b  TRL - Added 4 decimal digit to flow rate factor 0.0000, removed some dead code
- *
+ *  20-Dec-2023  1.4c  TRL - refactoring of code base, code cleanup
+ * 
  *  Notes:  1)  Tested with TASMOTA  12.3.1.1
  *          2)  ESP32, ESP32S3
  *
@@ -240,22 +241,20 @@ See integration notes...
 include/tasmota_template.h 
 (must be at end of structure)
 line 208 
-GPIO_FLOW, GPIO_FLOW_NP, GPIO_FLOW_LED,        // Flow Sensor xsns_125      //  <---------------  TRL
+GPIO_FLOW, GPIO_FLOW_LED,                    // Flow Sensor xsns_125       // <---------------  TRL
 
 line 459
-D_SENSOR_FLOW "|" D_SENSOR_FLOW "_n|" D_SENSOR_FLOW_LED "|"    // Flow xsns_125  // <---------------  TRL
+D_SENSOR_FLOW "|"  D_SENSOR_FLOW_LED "|"     // Flow xsns_125              // <---------------  TRL
 
 line 542
 #ifdef USE_FLOW
-  AGPIO(GPIO_FLOW),                            // Flow xsns_125             // <---------------  TRL
-  AGPIO(GPIO_FLOW_NP),
+  AGPIO(GPIO_FLOW),                           // Flow xsns_125             // <---------------  TRL
   AGPIO(GPIO_FLOW_LED),
 #endif
 
 tasmota/language/en_GB.h
 at line 921
 #define D_SENSOR_FLOW          "H2O Flow"      // Flow xsns_125             // <---------------  TRL
-#define D_SENSOR_FLOW_N        "H2O Flow N"
 #define D_SENSOR_FLOW_LED      "H2O Flow Led"
 
 */
@@ -304,8 +303,8 @@ at line 921
 
 /* ******************************************************** */
 // Format  1.3a = 0x01 03 01, 1.4 0x01 04 00
-const uint32_t  MyFlow_Settings_VERSION = 0x010401;       // Latest settings version)
-const char      Flow_SW_Version[8] = "1.4a";
+const uint32_t  MyFlow_Settings_VERSION = 0x010403;       // Latest settings version)
+const char      Flow_SW_Version[8] = "1.4c";
 
 // this is the current settings values from filesystem (44 bytes)
 struct MYSETTINGS
