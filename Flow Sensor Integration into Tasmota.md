@@ -3,7 +3,7 @@
 Flow Sensor Integration into Tasmota
 
 
-To minimize changes to Tasmota for development, only a few additions were made to TASMOTA-32  Ver: 12.3.1.1
+To minimize changes to Tasmota for development, only a few additions were made to TASMOTA-32  Ver: 13.3.0.1
 and they are documented below.
 ~~~
 /*
