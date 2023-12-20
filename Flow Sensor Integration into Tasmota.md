@@ -10,7 +10,7 @@ and they are documented below.
   xsns_125_flow_counter.ino - Flow sensors (water meters... sensor support for Tasmota)
 
   tom@lafleur.us
-  Copyright (C) 2022, 2023  Tom Lafleur and Theo Arends
+  Copyright (C) 2022, 2023, 2024  Tom Lafleur and Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
