@@ -23,7 +23,7 @@ and they are documented below.
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  and this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /* **************************************************************************************
@@ -82,7 +82,7 @@ and they are documented below.
 
     There does not seem to be a standard for how K-factor flow meters are presented.
     Flow sensors output a pulse stream at a frequency proportional to the flow volume as calibrated,
-    With some sensors like CST, and RainBird, you multiply the pulse frequency by the K factor to obtain a volume rate.
+    With some sensors like CST and RainBird, you multiply the pulse frequency by the K factor to obtain a volume rate.
     Others however like Badger, require you to divide the pulse frequency by K.
 
     So there are two basic types of K-Offset flow sensors, CST and many others are of type = 1,
