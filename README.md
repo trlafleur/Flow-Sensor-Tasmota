@@ -7,7 +7,7 @@ See:
   Flow Sensor Water Pressure.be
 
 
-  This is a binary copy of Tasmota 12.3.1.1 with my driver pre-installed
+  This includes a binary copy of Tasmota 12.3.1.1 and 13.3.0.1 with this driver pre-installed
   Tested on an Adafruit ESP32 Feather...
-  tasmota32.bin 
+  tasmota32.factory.bin 
 ~~~
